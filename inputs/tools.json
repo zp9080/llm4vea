@@ -1,0 +1,61 @@
+{
+    "tools": [
+        {
+            "type": "function",
+            "function": {
+                "name": "checksec",
+                "description": "Wrapper around checksec to inspect binary protections (NX, PIE, RELRO, Stack Canary, etc.)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "binary": {
+                            "type": "string",
+                            "description": "Path to the target binary file to analyze"
+                        }
+                    },
+                    "required": [
+                        "binary"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "ropgadget",
+                "description": "Wrapper around ROPgadget for ROP gadget discovery and chain building",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "binary": {
+                            "type": "string",
+                            "description": "Path to the target binary file to search for ROP gadgets"
+                        }
+                    },
+                    "required": [
+                        "binary"
+                    ]
+                }
+            }
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "exp-runner",
+                "description": "Execute Python-based pwntools exploit scripts and detect success patterns (flags, shells, etc.)",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "script_path": {
+                            "type": "string",
+                            "description": "Path to the Python exploit script to execute"
+                        }
+                    },
+                    "required": [
+                        "script_path"
+                    ]
+                }
+            }
+        }
+    ]
+}
