@@ -60,11 +60,6 @@ vuln 类型的 skill 由 **knowledge** 与 **templates** 两部分组成：knowl
 - PlanAgent 与 PwnAgent 支持独立开关，便于只运行单个阶段
 - EvaluateAgent 独立执行，与主流程解耦
 
-### tools
-- `BaseTool`：统一的工具调用接口
-- `BashTool`：执行命令行工具
-- `checksec` / `rop-gadget`：基于 BaseTool 的具体工具封装
-
 ## 运行时产物
 运行产物保存在 `runs/{timestamp}/`（timestamp用YY-MM-DD-HH-MM-SS格式），包括：
 - plan.md: 任务计划与中间决策
