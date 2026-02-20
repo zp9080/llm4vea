@@ -8,7 +8,7 @@ from agents.base_agent import BaseAgent, RunContext
 from tools.tool_registry import ToolResult
 from skills.skill_loader import load_skill, list_skills
 from agents.prompts import PWN_AGENT_SYSTEM_PROMPT, SKILL_PROMPT
-from utils.logger import get_logger
+from utils.logger import get_logger, log_llm_request, log_llm_response
 
 logger = get_logger(__name__)
 
@@ -88,7 +88,9 @@ class PwnAgent(BaseAgent):
                 logger.debug(f"Added debug output from previous round to messages")
 
             try:
+                log_llm_request(logger, messages, tools=tools.schemas)
                 resp = llm.complete(messages, tools=tools.schemas)
+                log_llm_response(logger, resp)
             except Exception as exc:
                 logger.error(f"Failed to complete plan in round {round_idx}: {exc}")
                 raise RuntimeError(f"Failed to complete plan: {exc}") from exc

@@ -11,7 +11,7 @@ from skills.skill_loader import (
 )
 from tools.tool_registry import ToolResult
 from agents.prompts import PLAN_AGENT_SYSTEM_PROMPT, SKILL_PROMPT
-from utils.logger import get_logger
+from utils.logger import get_logger, log_llm_request, log_llm_response
 
 logger = get_logger(__name__)
 
@@ -82,7 +82,9 @@ class PlanAgent(BaseAgent):
         for round_idx in range(1, max_rounds + 1):
             logger.info(f"Round {round_idx}/{max_rounds}")
             try:
+                log_llm_request(logger, messages, tools=tools.schemas)
                 resp = llm.complete(messages, tools=tools.schemas)
+                log_llm_response(logger, resp)
             except Exception as exc:
                 logger.error(f"Failed to complete plan in round {round_idx}: {exc}")
                 raise RuntimeError(f"Failed to complete plan: {exc}") from exc
