@@ -131,13 +131,15 @@ def log_tool_call(logger: logging.Logger, tool_name: str, args: Dict[str, Any]) 
         logger.info(f"   Args: {json.dumps(args, ensure_ascii=False)}")
 
 
-def log_tool_result(logger: logging.Logger, tool_name: str, returncode: int) -> None:
+def log_tool_result(logger: logging.Logger, tool_name: str, returncode: int, stdout: str = "", stderr: str = "") -> None:
     """打印工具执行结果（醒目）。
 
     Args:
         logger: logger 实例
         tool_name: 工具名称
         returncode: 返回码
+        stdout: 标准输出
+        stderr: 标准错误
     """
     if returncode == 0:
         colored_msg = f"{Colors.BOLD}{Colors.OKGREEN}✓ Tool '{tool_name}' completed successfully (returncode: {returncode}){Colors.ENDC}"
@@ -145,4 +147,18 @@ def log_tool_result(logger: logging.Logger, tool_name: str, returncode: int) -> 
     else:
         colored_msg = f"{Colors.BOLD}{Colors.WARNING}⚠ Tool '{tool_name}' failed (returncode: {returncode}){Colors.ENDC}"
         logger.warning(colored_msg)
+    
+    if stdout:
+        logger.info(f"{Colors.OKCYAN}   stdout:{Colors.ENDC}")
+        for line in stdout.split('\n')[:10]:  # 只显示前10行
+            logger.info(f"      {line}")
+        if len(stdout.split('\n')) > 10:
+            logger.info(f"      ... ({len(stdout.split('\n')) - 10} more lines)")
+    
+    if stderr:
+        logger.warning(f"{Colors.OKCYAN}   stderr:{Colors.ENDC}")
+        for line in stderr.split('\n')[:10]:  # 只显示前10行
+            logger.warning(f"      {line}")
+        if len(stderr.split('\n')) > 10:
+            logger.warning(f"      ... ({len(stderr.split('\n')) - 10} more lines)")
 

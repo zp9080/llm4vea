@@ -72,7 +72,7 @@ class PwnAgent(BaseAgent):
         system_parts.append(skills_index)
         system_base_context = "".join(system_parts)
 
-        max_rounds = 20
+        max_rounds = 50
         last_result: ToolResult | None = None
         last_code: str | None = None
         final_debug_md: str | None = None
@@ -132,7 +132,7 @@ class PwnAgent(BaseAgent):
                         args = {}
                     log_tool_call(logger, name, args)
                     result: ToolResult = tools.run(name, **args)
-                    log_tool_result(logger, name, result.returncode)
+                    log_tool_result(logger, name, result.returncode, result.stdout, result.stderr)
                     tool_content_parts: List[str] = []
                     tool_content_parts.append(f"# Tool result: {result.name}\n")
                     tool_content_parts.append(f"- args: {json.dumps(result.args, ensure_ascii=False)}\n")
@@ -153,11 +153,7 @@ class PwnAgent(BaseAgent):
                 continue
 
             raw = resp.get("content", "")
-            if not isinstance(raw, str) or not raw.strip():
-                log_warning(logger, f"Empty response in round {round_idx}")
-                break
-            
-            log_info(logger, f"LLM Response Content:\n{raw}")
+            log_info(logger, f"LLM Response Content:\n{str(raw)}")
 
             try:
                 data = json.loads(raw)
@@ -191,7 +187,7 @@ class PwnAgent(BaseAgent):
                 log_success(logger, f"Exp written to: {exp_py}")
                 result = tools.run("exp_runner", script_path=str(exp_py), cwd=binary.parent)
                 last_result = result
-                log_info(logger, f"Exp runner executed with returncode: {result.returncode}")
+                log_tool_result(logger, "exp_runner", result.returncode, result.stdout, result.stderr)
 
             if status == "finish":
                 if debug_md.strip():

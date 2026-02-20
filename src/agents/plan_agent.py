@@ -82,14 +82,16 @@ class PlanAgent(BaseAgent):
         system_base_context = "".join(system_parts)
 
         # 2. LLM 自主控制的多轮循环
-        max_rounds = 20
+        max_rounds = 50
         final_plan: str | None = None
 
         log_info(logger, f"Starting multi-round LLM loop (max rounds: {max_rounds})")
 
+        system_prompt = PLAN_AGENT_SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + "\n\n" + system_base_context
+        user_prompt = user_base_context
         messages = [
-            {"role": "system", "content": PLAN_AGENT_SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + "\n\n" + system_base_context},
-            {"role": "user", "content": user_base_context},
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
         ]
 
         for round_idx in range(1, max_rounds + 1):
@@ -128,7 +130,7 @@ class PlanAgent(BaseAgent):
                         args = {}
                     log_tool_call(logger, name, args)
                     result: ToolResult = tools.run(name, **args)
-                    log_tool_result(logger, name, result.returncode)
+                    log_tool_result(logger, name, result.returncode, result.stdout, result.stderr)
                     tool_content_parts: List[str] = []
                     tool_content_parts.append(f"# Tool result: {result.name}\n")
                     tool_content_parts.append(f"- args: {json.dumps(result.args, ensure_ascii=False)}\n")
@@ -150,11 +152,7 @@ class PlanAgent(BaseAgent):
 
             # 处理返回的json数据
             raw = resp.get("content", "")
-            if not isinstance(raw, str) or not raw.strip():
-                log_warning(logger, f"Empty response in round {round_idx}")
-                break
-            
-            log_info(logger, f"LLM Response Content:\n{raw}")
+            log_info(logger, f"LLM Response Content:\n{str(raw)}")
 
             try:
                 data = json.loads(raw)
