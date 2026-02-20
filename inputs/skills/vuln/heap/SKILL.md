@@ -18,7 +18,7 @@ description: "提供针对 glibc 堆漏洞的核心利用技术与 EXP 模板。
 - [heap基础知识](./knowledge/heap-basics.md)
 - [house-of-apple2攻击参考知识](./knowledge/house-of-apple2.md)
 - [堆攻击IO_FILE参考知识](./knowledge/io-file-basics.md)
-- [tcache-poison攻击参考知识](./knowledge/tcache-poisoning.md)
+- [tcache-poison攻击参考知识](./knowledge/tcache-poison.md)
 
 ## templates
 
