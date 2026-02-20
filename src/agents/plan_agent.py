@@ -95,101 +95,103 @@ class PlanAgent(BaseAgent):
         ]
         log_info(logger, f"System Prompt: {system_prompt}")
 
-        for round_idx in range(1, max_rounds + 1):
-            log_step(logger, round_idx, max_rounds, "Processing LLM request")
-            try:
-                resp = llm.complete(messages, tools=tools.schemas)
-            except Exception as exc:
-                log_error(logger, f"Failed to complete plan in round {round_idx}: {exc}")
-                raise RuntimeError(f"Failed to complete plan: {exc}") from exc
+        try:
+            for round_idx in range(1, max_rounds + 1):
+                log_step(logger, round_idx, max_rounds, "Processing LLM request")
+                try:
+                    resp = llm.complete(messages, tools=tools.schemas)
+                except Exception as exc:
+                    log_error(logger, f"Failed to complete plan in round {round_idx}: {exc}")
+                    raise RuntimeError(f"Failed to complete plan: {exc}") from exc
 
-            if not isinstance(resp, dict):
-                raise RuntimeError(f"response is not a dict: {resp}")
+                if not isinstance(resp, dict):
+                    raise RuntimeError(f"response is not a dict: {resp}")
 
-            messages.append(resp)
+                messages.append(resp)
 
-            # 处理tool_calls
-            tool_calls = resp.get("tool_calls", None)
-            if isinstance(tool_calls, list) and tool_calls:
-                log_info(logger, f"Received {len(tool_calls)} tool calls in round {round_idx}")
-                for call in tool_calls:
-                    if not isinstance(call, dict):
-                        continue
-                    call_id = str(call.get("id", "")).strip()
-                    fn = call.get("function", {})
-                    if not isinstance(fn, dict):
-                        continue
-                    name = str(fn.get("name", "")).strip()
-                    if not name:
-                        continue
-                    raw_args = fn.get("arguments", "{}")
-                    try:
-                        args = json.loads(raw_args) if isinstance(raw_args, str) else {}
-                    except Exception:
-                        args = {}
-                    if not isinstance(args, dict):
-                        args = {}
-                    log_tool_call(logger, name, args)
-                    result: ToolResult = tools.run(name, **args)
-                    log_tool_result(logger, name, result.returncode, result.stdout, result.stderr)
-                    tool_content_parts: List[str] = []
-                    tool_content_parts.append(f"# Tool result: {result.name}\n")
-                    tool_content_parts.append(f"- args: {json.dumps(result.args, ensure_ascii=False)}\n")
-                    tool_content_parts.append(f"- returncode: {result.returncode}\n\n")
-                    tool_content_parts.append("## stdout\n\n```text\n")
-                    tool_content_parts.append(result.stdout)
-                    tool_content_parts.append("\n```\n")
-                    tool_content_parts.append("\n## stderr\n\n```text\n")
-                    tool_content_parts.append(result.stderr)
-                    tool_content_parts.append("\n```\n")
-                    messages.append(
-                        {
-                            "role": "tool",
-                            "tool_call_id": call_id,
-                            "content": "".join(tool_content_parts),
-                        }
-                    )
-                continue
+                # 处理tool_calls
+                tool_calls = resp.get("tool_calls", None)
+                if isinstance(tool_calls, list) and tool_calls:
+                    log_info(logger, f"Received {len(tool_calls)} tool calls in round {round_idx}")
+                    for call in tool_calls:
+                        if not isinstance(call, dict):
+                            continue
+                        call_id = str(call.get("id", "")).strip()
+                        fn = call.get("function", {})
+                        if not isinstance(fn, dict):
+                            continue
+                        name = str(fn.get("name", "")).strip()
+                        if not name:
+                            continue
+                        raw_args = fn.get("arguments", "{}")
+                        try:
+                            args = json.loads(raw_args) if isinstance(raw_args, str) else {}
+                        except Exception:
+                            args = {}
+                        if not isinstance(args, dict):
+                            args = {}
+                        log_tool_call(logger, name, args)
+                        result: ToolResult = tools.run(name, **args)
+                        log_tool_result(logger, name, result.returncode, result.stdout, result.stderr)
+                        tool_content_parts: List[str] = []
+                        tool_content_parts.append(f"# Tool result: {result.name}\n")
+                        tool_content_parts.append(f"- args: {json.dumps(result.args, ensure_ascii=False)}\n")
+                        tool_content_parts.append(f"- returncode: {result.returncode}\n\n")
+                        tool_content_parts.append("## stdout\n\n```text\n")
+                        tool_content_parts.append(result.stdout)
+                        tool_content_parts.append("\n```\n")
+                        tool_content_parts.append("\n## stderr\n\n```text\n")
+                        tool_content_parts.append(result.stderr)
+                        tool_content_parts.append("\n```\n")
+                        messages.append(
+                            {
+                                "role": "tool",
+                                "tool_call_id": call_id,
+                                "content": "".join(tool_content_parts),
+                            }
+                        )
+                    continue
 
-            # 处理返回的json数据
-            raw = resp.get("content", "")
-            log_info(logger, f"LLM Response Content:\n{str(raw)}")
+                # 处理返回的json数据
+                raw = resp.get("content", "")
+                log_info(logger, f"LLM Response Content:\n{str(raw)}")
 
-            try:
-                data = json.loads(raw)
-            except Exception:
-                log_warning(logger, f"Invalid JSON response in round {round_idx}: {raw[:100]}...")
-                messages.append({"role": "user", "content": "返回的内容不是纯json，请重新返回"})
-                continue
+                try:
+                    data = json.loads(raw)
+                except Exception:
+                    log_warning(logger, f"Invalid JSON response in round {round_idx}: {raw[:100]}...")
+                    messages.append({"role": "user", "content": "返回的内容不是纯json，请重新返回"})
+                    continue
 
-            try:
-                status = str(data.get("status", "")).lower()
-                plan_md = str(data.get("plan.md", ""))
-                think = str(data.get("think", ""))
-            except Exception as e:
-                log_error(logger, f"Failed to parse JSON fields in round {round_idx}: {e}")
-                messages.append({"role": "user", "content": f"返回的json字段解析失败: {e}，请重新返回"})
-                continue
+                try:
+                    status = str(data.get("status", "")).lower()
+                    plan_md = str(data.get("plan.md", ""))
+                    think = str(data.get("think", ""))
+                except Exception as e:
+                    log_error(logger, f"Failed to parse JSON fields in round {round_idx}: {e}")
+                    messages.append({"role": "user", "content": f"返回的json字段解析失败: {e}，请重新返回"})
+                    continue
 
-            if status not in {"continue", "finish"}:
-                log_warning(logger, f"Invalid status '{status}' in round {round_idx}")
-                messages.append({"role": "user", "content": "返回的status应当是continue或finish两者状态之一，继续分析任务"})
-                continue
+                if status not in {"continue", "finish"}:
+                    log_warning(logger, f"Invalid status '{status}' in round {round_idx}")
+                    messages.append({"role": "user", "content": "返回的status应当是continue或finish两者状态之一，继续分析任务"})
+                    continue
 
-            if think.strip():
-                messages.append({"role": "assistant", "content": f"[Think] {think.strip()}"})
+                if think.strip():
+                    messages.append({"role": "assistant", "content": f"[Think] {think.strip()}"})
 
-            if status == "finish" and plan_md.strip():
-                log_success(logger, f"PlanAgent finished in round {round_idx}")
-                final_plan = plan_md.strip()
-                break
+                if status == "finish" and plan_md.strip():
+                    log_success(logger, f"PlanAgent finished in round {round_idx}")
+                    final_plan = plan_md.strip()
+                    break
 
-            messages.append({"role": "user", "content": "继续"})
+                messages.append({"role": "user", "content": "继续"})
+        finally:
+            (self.ctx.run_dir / "messages.json").write_text(
+                json.dumps(messages, indent=2, ensure_ascii=False), encoding="utf-8"
+            )
 
         log_success(logger, f"Plan written to: {plan_path}")
-        (self.ctx.run_dir / "messages.json").write_text(
-            json.dumps(messages, indent=2, ensure_ascii=False), encoding="utf-8"
-        )
         # 3. 存储plan.md
         if final_plan is None:
             log_error(logger, "PlanAgent failed: no final plan generated")
