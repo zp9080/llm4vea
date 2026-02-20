@@ -60,7 +60,7 @@ class PwnAgent(BaseAgent):
         system_parts.append(skills_index)
         system_base_context = "".join(system_parts)
 
-        max_rounds = 10
+        max_rounds = 20
         last_result: ToolResult | None = None
         last_code: str | None = None
         final_debug_md: str | None = None

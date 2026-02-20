@@ -3,6 +3,9 @@ import sys
 import json
 from typing import Optional, List, Dict, Any
 
+# 跟踪每个logger已经打印过的消息数量
+_printed_message_counts: Dict[str, int] = {}
+
 
 def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     """获取一个配置好的logger实例。
@@ -45,27 +48,44 @@ def log_llm_request(logger: logging.Logger, messages: List[Dict[str, Any]], tool
     logger.info("LLM Request:")
     logger.info("-" * 80)
     
-    for i, msg in enumerate(messages):
-        role = msg.get("role", "unknown")
-        content = msg.get("content", "")
-        logger.info(f"[Message {i+1}] Role: {role}")
-        
-        if role == "tool":
-            tool_call_id = msg.get("tool_call_id", "")
-            logger.info(f"  Tool Call ID: {tool_call_id}")
-        
-        if isinstance(content, str) and content:
-            logger.info(f"  Content: {content[:500]}{'...' if len(content) > 500 else ''}")
-        elif content:
-            logger.info(f"  Content: {str(content)[:500]}{'...' if len(str(content)) > 500 else ''}")
-        
-        logger.info("")
+    logger_name = logger.name
+    printed_count = _printed_message_counts.get(logger_name, 0)
     
-    if tools:
-        logger.info(f"Available tools: {len(tools)}")
-        for tool in tools:
-            tool_name = tool.get("name", "unknown")
-            logger.info(f"  - {tool_name}")
+    # 第一次调用时，打印 system prompt
+    if printed_count == 0 and messages:
+        system_msg = messages[0]
+        if system_msg.get("role") == "system":
+            content = system_msg.get("content", "")
+            logger.info(f"[System Prompt] (first time only)")
+            if isinstance(content, str) and content:
+                logger.info(f"  Content: {content[:500]}{'...' if len(content) > 500 else ''}")
+            elif content:
+                logger.info(f"  Content: {str(content)[:500]}{'...' if len(str(content)) > 500 else ''}")
+            logger.info("")
+            printed_count = 1
+    
+    # 只打印新增的 messages
+    new_messages = messages[printed_count:]
+    if new_messages:
+        logger.info(f"New messages: {len(new_messages)}")
+        for i, msg in enumerate(new_messages):
+            role = msg.get("role", "unknown")
+            content = msg.get("content", "")
+            logger.info(f"[Message {printed_count + i + 1}] Role: {role}")
+            
+            if role == "tool":
+                tool_call_id = msg.get("tool_call_id", "")
+                logger.info(f"  Tool Call ID: {tool_call_id}")
+            
+            if isinstance(content, str) and content:
+                logger.info(f"  Content: {content[:500]}{'...' if len(content) > 500 else ''}")
+            elif content:
+                logger.info(f"  Content: {str(content)[:500]}{'...' if len(str(content)) > 500 else ''}")
+            
+            logger.info("")
+    
+    # 更新已打印的消息数量
+    _printed_message_counts[logger_name] = len(messages)
     
     logger.info("-" * 80)
 

@@ -208,25 +208,6 @@
           ]
         }
       }
-    },
-    {
-      "type": "function",
-      "function": {
-        "name": "skill_reader",
-        "description": "Read a skill by skill_id (SKILL.md + knowledge/templates).",
-        "parameters": {
-          "type": "object",
-          "properties": {
-            "skill_id": {
-              "type": "string",
-              "description": "Skill id, e.g. \"core\", \"edge\", \"vuln/stack_overflow\""
-            }
-          },
-          "required": [
-            "skill_id"
-          ]
-        }
-      }
     }
   ]
 }

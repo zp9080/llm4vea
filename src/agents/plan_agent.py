@@ -69,7 +69,7 @@ class PlanAgent(BaseAgent):
         system_base_context = "".join(system_parts)
 
         # 2. LLM 自主控制的多轮循环
-        max_rounds = 10
+        max_rounds =20
         final_plan: str | None = None
 
         logger.info(f"Starting multi-round LLM loop, max rounds: {max_rounds}")
