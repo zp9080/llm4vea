@@ -36,16 +36,16 @@ def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     return logger
 
 
-def log_llm_request(logger: logging.Logger, messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None) -> None:
+def log_llm_request(logger: logging.Logger, messages: List[Dict[str, Any]], round: int = 1) -> None:
     """记录 LLM 请求信息。
 
     Args:
         logger: logger 实例
         messages: 消息列表
-        tools: 工具列表（可选）
+        round: 当前轮次
     """
     logger.info("=" * 80)
-    logger.info("LLM Request:")
+    logger.info(f"LLM Request (Round {round}):")
     logger.info("-" * 80)
     
     logger_name = logger.name
@@ -56,11 +56,11 @@ def log_llm_request(logger: logging.Logger, messages: List[Dict[str, Any]], tool
         system_msg = messages[0]
         if system_msg.get("role") == "system":
             content = system_msg.get("content", "")
-            logger.info(f"[System Prompt] (first time only)")
+            logger.info(f"[System Prompt]")
             if isinstance(content, str) and content:
-                logger.info(f"  Content: {content[:500]}{'...' if len(content) > 500 else ''}")
+                logger.info(f"\nContent: {content}")
             elif content:
-                logger.info(f"  Content: {str(content)[:500]}{'...' if len(str(content)) > 500 else ''}")
+                logger.info(f"\nContent: {str(content)}")
             logger.info("")
             printed_count = 1
     
@@ -71,16 +71,16 @@ def log_llm_request(logger: logging.Logger, messages: List[Dict[str, Any]], tool
         for i, msg in enumerate(new_messages):
             role = msg.get("role", "unknown")
             content = msg.get("content", "")
-            logger.info(f"[Message {printed_count + i + 1}] Role: {role}")
+            logger.info(f"[Message {i + 1}] Role: {role}")
             
             if role == "tool":
                 tool_call_id = msg.get("tool_call_id", "")
-                logger.info(f"  Tool Call ID: {tool_call_id}")
-            
+                logger.info(f"\nTool Call ID: {tool_call_id}")
+
             if isinstance(content, str) and content:
-                logger.info(f"  Content: {content[:500]}{'...' if len(content) > 500 else ''}")
+                logger.info(f"\nContent: {content}")
             elif content:
-                logger.info(f"  Content: {str(content)[:500]}{'...' if len(str(content)) > 500 else ''}")
+                logger.info(f"\nContent: {str(content)}")
             
             logger.info("")
     
@@ -90,20 +90,21 @@ def log_llm_request(logger: logging.Logger, messages: List[Dict[str, Any]], tool
     logger.info("-" * 80)
 
 
-def log_llm_response(logger: logging.Logger, response: Dict[str, Any]) -> None:
+def log_llm_response(logger: logging.Logger, response: Dict[str, Any], round: int = 1) -> None:
     """记录 LLM 响应信息。
 
     Args:
         logger: logger 实例
         response: 响应字典
+        round: 当前轮次
     """
     logger.info("=" * 80)
-    logger.info("LLM Response:")
+    logger.info(f"LLM Response (Round {round}):")
     logger.info("-" * 80)
     
     content = response.get("content", "")
     if content:
-        logger.info(f"Content: {content[:1000]}{'...' if len(content) > 1000 else ''}")
+        logger.info(f"\nContent: {content}{'...' if len(content) > 1000 else ''}")
     
     tool_calls = response.get("tool_calls")
     if tool_calls and isinstance(tool_calls, list):
@@ -116,8 +117,8 @@ def log_llm_response(logger: logging.Logger, response: Dict[str, Any]) -> None:
                 logger.info(f"  [{i+1}] {name}")
                 try:
                     parsed_args = json.loads(args) if isinstance(args, str) else args
-                    logger.info(f"      Args: {json.dumps(parsed_args, ensure_ascii=False)[:500]}")
+                    logger.info(f"\nArgs: {json.dumps(parsed_args, ensure_ascii=False)}")
                 except:
-                    logger.info(f"      Args: {str(args)[:500]}")
+                    logger.info(f"\nArgs: {str(args)}")
     
     logger.info("-" * 80)

@@ -88,9 +88,9 @@ class PwnAgent(BaseAgent):
                 logger.debug(f"Added debug output from previous round to messages")
 
             try:
-                log_llm_request(logger, messages, tools=tools.schemas)
+                log_llm_request(logger, messages, round=round_idx)
                 resp = llm.complete(messages, tools=tools.schemas)
-                log_llm_response(logger, resp)
+                log_llm_response(logger, resp, round=round_idx)
             except Exception as exc:
                 logger.error(f"Failed to complete plan in round {round_idx}: {exc}")
                 raise RuntimeError(f"Failed to complete plan: {exc}") from exc
