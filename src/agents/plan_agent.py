@@ -186,14 +186,14 @@ class PlanAgent(BaseAgent):
 
             messages.append({"role": "user", "content": "继续"})
 
-        # 3. 若多轮 LLM 没有给出最终 plan，则回退到本地拼接版本
-        if final_plan is None:
-            log_error(logger, "PlanAgent failed: no final plan generated")
-            raise RuntimeError("PlanAgent执行失败，没有返回plan.md")
-        plan_path.write_text(final_plan, encoding="utf-8")
         log_success(logger, f"Plan written to: {plan_path}")
         (self.ctx.run_dir / "messages.json").write_text(
             json.dumps(messages, indent=2, ensure_ascii=False), encoding="utf-8"
         )
+        # 3. 存储plan.md
+        if final_plan is None:
+            log_error(logger, "PlanAgent failed: no final plan generated")
+            raise RuntimeError("PlanAgent执行失败，没有返回plan.md")
+        plan_path.write_text(final_plan, encoding="utf-8")
         log_info(logger, f"Messages saved to: {self.ctx.run_dir / 'messages.json'}")
         log_section(logger, "✅ PlanAgent Completed Successfully")
