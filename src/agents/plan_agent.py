@@ -93,6 +93,7 @@ class PlanAgent(BaseAgent):
             {"role": "system", "content": system_prompt},
             {"role": "user", "content": user_prompt},
         ]
+        log_info(logger, f"System Prompt: {system_prompt}")
 
         for round_idx in range(1, max_rounds + 1):
             log_step(logger, round_idx, max_rounds, "Processing LLM request")

@@ -80,10 +80,14 @@ class PwnAgent(BaseAgent):
 
         log_info(logger, f"Starting multi-round LLM loop (max rounds: {max_rounds})")
 
+        system_prompt = PWN_AGENT_SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + "\n\n" + system_base_context
+        user_prompt = user_base_context
         messages = [
-            {"role": "system", "content": PWN_AGENT_SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + "\n\n" + system_base_context},
-            {"role": "user", "content": user_base_context},
+            {"role": "system", "content": system_prompt },
+            {"role": "user", "content": user_prompt},
         ]
+
+        log_info(logger, f"System Prompt: {system_prompt}")
 
         for round_idx in range(1, max_rounds + 1):
             log_step(logger, round_idx, max_rounds, "Processing LLM request")

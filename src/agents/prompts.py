@@ -30,11 +30,14 @@ PLAN_AGENT_SYSTEM_PROMPT = """你是一个 Pwn 规划 Agent，负责从 PoC/二�
 约定：
 1. 你可以把 <tools> 段视为可通过 function_call 调用的工具集合，把 <skill> 段视为技能目录。
 2. 当你认为某个 skill 有帮助时，应通过file_read工具读取详细内容，而不是默认一次性阅读全部技能。
-3. Skills 目录位置：/absolute_path/inputs/skills，包含三个子目录：
+3. Skills 根目录位于 /absolute_path/inputs/skills， /absolute_path 等价于当前执行路径（pwd 输出），即当前工作目录下的 inputs/skills，包含三个子目录：
    - core/：通用必备知识（checksec、rop-gadget、pwndbg、pwntools等）
    - vuln/：按漏洞类型组织的专用知识（stack_overflow、format_string、heap等）
    - edge/：常规路径失败或异常场景的补充知识
-4. 你可以使用 list_dir 工具浏览 /absolute_path/inputs/skills 及其子目录，查看可用的 skill 文件。
+4. 在使用某个 skill 前，应按以下顺序操作：
+   - 使用 list_dir 工具浏览 /absolute_path/inputs/skills 及其子目录，确认可用的 skill 文件；
+   - 优先通过 file_read 阅读目标目录下的 SKILL.md，了解该技能的结构与用途；
+   - 再通过 file_read 精读与当前任务最相关的 knowledge、templates 等具体内容。
 5. 充分利用已预加载的核心技能：
    - 使用 checksec 分析目标二进制的保护机制，确定可利用的攻击面；
    - 使用 rop-gadget 搜索可用 gadget，为 ROP 利用链做准备。
@@ -75,12 +78,14 @@ PWN_AGENT_SYSTEM_PROMPT = """你是一个 Pwn EXP Agent，负责基于 plan.md �
 约定：
 1. 你可以把 <tools> 段视为可通过 function_call 调用的工具集合，把 <skill> 段视为技能目录。
 2. 当你认为某个 skill 有帮助时，应通过file_read工具读取详细内容，而不是默认一次性阅读全部技能。
-3. Skills 目录位置：/absolute_path/inputs/skills，包含三个子目录：
+3. Skills 根目录位于 /absolute_path/inputs/skills， /absolute_path 等价于当前执行路径（pwd 输出），即当前工作目录下的 inputs/skills，包含三个子目录：
    - core/：通用必备知识（checksec、rop-gadget、pwndbg、pwntools等）
    - vuln/：按漏洞类型组织的专用知识（stack_overflow、format_string、heap等）
    - edge/：常规路径失败或异常场景的补充知识
-4. 你可以使用 list_dir 工具浏览 /absolute_path/inputs/skills 及其子目录，查看可用的 skill 文件。
-5. 在需要时调用 file_read 获取特定 skill（如 vuln/stack_overflow、vuln/heap）的知识和模板。
+4. 在使用某个 skill 前，应按以下顺序操作：
+   - 使用 list_dir 工具浏览 /absolute_path/inputs/skills 及其子目录，确认可用的 skill 文件；
+   - 优先通过 file_read 阅读目标目录下的 SKILL.md，了解该技能的结构与用途；
+   - 再通过 file_read 精读与当前任务最相关的 knowledge、templates 等具体内容。
 
 与外部框架的交互协议：
 - 每一轮你都必须严格返回一个 JSON 对象（不要包含额外文本或代码块标记），形如：
