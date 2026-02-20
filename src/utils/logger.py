@@ -3,8 +3,17 @@ import sys
 import json
 from typing import Optional, List, Dict, Any
 
-# 跟踪每个logger已经打印过的消息数量
-_printed_message_counts: Dict[str, int] = {}
+# ANSI 颜色代码
+class Colors:
+    HEADER = '\033[95m'
+    OKBLUE = '\033[94m'
+    OKCYAN = '\033[96m'
+    OKGREEN = '\033[92m'
+    WARNING = '\033[93m'
+    FAIL = '\033[91m'
+    ENDC = '\033[0m'
+    BOLD = '\033[1m'
+    UNDERLINE = '\033[4m'
 
 
 def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
@@ -36,88 +45,104 @@ def get_logger(name: str, level: int = logging.INFO) -> logging.Logger:
     return logger
 
 
-def log_llm_request(logger: logging.Logger, messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None) -> None:
-    """记录 LLM 请求信息。
+def log_section(logger: logging.Logger, title: str, level: int = logging.INFO) -> None:
+    """打印醒目的分节标题。
 
     Args:
         logger: logger 实例
-        messages: 消息列表
-        tools: 工具列表（可选）
+        title: 标题内容
+        level: 日志级别
     """
-    logger.info("=" * 80)
-    logger.info("LLM Request:")
-    logger.info("-" * 80)
-    
-    logger_name = logger.name
-    printed_count = _printed_message_counts.get(logger_name, 0)
-    
-    # 第一次调用时，打印 system prompt
-    if printed_count == 0 and messages:
-        system_msg = messages[0]
-        if system_msg.get("role") == "system":
-            content = system_msg.get("content", "")
-            logger.info(f"[System Prompt] (first time only)")
-            if isinstance(content, str) and content:
-                logger.info(f"  Content: {content[:500]}{'...' if len(content) > 500 else ''}")
-            elif content:
-                logger.info(f"  Content: {str(content)[:500]}{'...' if len(str(content)) > 500 else ''}")
-            logger.info("")
-            printed_count = 1
-    
-    # 只打印新增的 messages
-    new_messages = messages[printed_count:]
-    if new_messages:
-        logger.info(f"New messages: {len(new_messages)}")
-        for i, msg in enumerate(new_messages):
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")
-            logger.info(f"[Message {printed_count + i + 1}] Role: {role}")
-            
-            if role == "tool":
-                tool_call_id = msg.get("tool_call_id", "")
-                logger.info(f"  Tool Call ID: {tool_call_id}")
-            
-            if isinstance(content, str) and content:
-                logger.info(f"  Content: {content[:500]}{'...' if len(content) > 500 else ''}")
-            elif content:
-                logger.info(f"  Content: {str(content)[:500]}{'...' if len(str(content)) > 500 else ''}")
-            
-            logger.info("")
-    
-    # 更新已打印的消息数量
-    _printed_message_counts[logger_name] = len(messages)
-    
-    logger.info("-" * 80)
+    border = "=" * 80
+    colored_title = f"{Colors.BOLD}{Colors.HEADER}{title}{Colors.ENDC}"
+    logger.log(level, f"\n{border}")
+    logger.log(level, f"{colored_title}")
+    logger.log(level, f"{border}\n")
 
 
-def log_llm_response(logger: logging.Logger, response: Dict[str, Any]) -> None:
-    """记录 LLM 响应信息。
+def log_success(logger: logging.Logger, message: str) -> None:
+    """打印成功消息（绿色）。
 
     Args:
         logger: logger 实例
-        response: 响应字典
+        message: 消息内容
     """
-    logger.info("=" * 80)
-    logger.info("LLM Response:")
-    logger.info("-" * 80)
-    
-    content = response.get("content", "")
-    if content:
-        logger.info(f"Content: {content[:1000]}{'...' if len(content) > 1000 else ''}")
-    
-    tool_calls = response.get("tool_calls")
-    if tool_calls and isinstance(tool_calls, list):
-        logger.info(f"Tool Calls: {len(tool_calls)}")
-        for i, call in enumerate(tool_calls):
-            if isinstance(call, dict):
-                fn = call.get("function", {})
-                name = fn.get("name", "unknown")
-                args = fn.get("arguments", "{}")
-                logger.info(f"  [{i+1}] {name}")
-                try:
-                    parsed_args = json.loads(args) if isinstance(args, str) else args
-                    logger.info(f"      Args: {json.dumps(parsed_args, ensure_ascii=False)[:500]}")
-                except:
-                    logger.info(f"      Args: {str(args)[:500]}")
-    
-    logger.info("-" * 80)
+    colored_msg = f"{Colors.BOLD}{Colors.OKGREEN}✓ {message}{Colors.ENDC}"
+    logger.info(colored_msg)
+
+
+def log_error(logger: logging.Logger, message: str) -> None:
+    """打印错误消息（红色）。
+
+    Args:
+        logger: logger 实例
+        message: 消息内容
+    """
+    colored_msg = f"{Colors.BOLD}{Colors.FAIL}✗ {message}{Colors.ENDC}"
+    logger.error(colored_msg)
+
+
+def log_warning(logger: logging.Logger, message: str) -> None:
+    """打印警告消息（黄色）。
+
+    Args:
+        logger: logger 实例
+        message: 消息内容
+    """
+    colored_msg = f"{Colors.BOLD}{Colors.WARNING}⚠ {message}{Colors.ENDC}"
+    logger.warning(colored_msg)
+
+
+def log_info(logger: logging.Logger, message: str) -> None:
+    """打印信息消息（蓝色）。
+
+    Args:
+        logger: logger 实例
+        message: 消息内容
+    """
+    colored_msg = f"{Colors.BOLD}{Colors.OKBLUE}ℹ {message}{Colors.ENDC}"
+    logger.info(colored_msg)
+
+
+def log_step(logger: logging.Logger, step_num: int, total: int, message: str) -> None:
+    """打印步骤信息（青色）。
+
+    Args:
+        logger: logger 实例
+        step_num: 当前步骤号
+        total: 总步骤数
+        message: 消息内容
+    """
+    colored_msg = f"{Colors.BOLD}{Colors.OKCYAN}[{step_num}/{total}] {message}{Colors.ENDC}"
+    logger.info(colored_msg)
+
+
+def log_tool_call(logger: logging.Logger, tool_name: str, args: Dict[str, Any]) -> None:
+    """打印工具调用信息（醒目）。
+
+    Args:
+        logger: logger 实例
+        tool_name: 工具名称
+        args: 参数字典
+    """
+    colored_name = f"{Colors.BOLD}{Colors.OKCYAN}🔧 Tool: {tool_name}{Colors.ENDC}"
+    logger.info(colored_name)
+    if args:
+        logger.info(f"   Args: {json.dumps(args, ensure_ascii=False)}")
+
+
+def log_tool_result(logger: logging.Logger, tool_name: str, returncode: int) -> None:
+    """打印工具执行结果（醒目）。
+
+    Args:
+        logger: logger 实例
+        tool_name: 工具名称
+        returncode: 返回码
+    """
+    if returncode == 0:
+        colored_msg = f"{Colors.BOLD}{Colors.OKGREEN}✓ Tool '{tool_name}' completed successfully (returncode: {returncode}){Colors.ENDC}"
+        logger.info(colored_msg)
+    else:
+        colored_msg = f"{Colors.BOLD}{Colors.WARNING}⚠ Tool '{tool_name}' failed (returncode: {returncode}){Colors.ENDC}"
+        logger.warning(colored_msg)
+

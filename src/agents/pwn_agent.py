@@ -8,7 +8,17 @@ from agents.base_agent import BaseAgent, RunContext
 from tools.tool_registry import ToolResult
 from skills.skill_loader import load_skill, list_skills
 from agents.prompts import PWN_AGENT_SYSTEM_PROMPT, SKILL_PROMPT
-from utils.logger import get_logger, log_llm_request, log_llm_response
+from utils.logger import (
+    get_logger,
+    log_section,
+    log_success,
+    log_error,
+    log_warning,
+    log_info,
+    log_step,
+    log_tool_call,
+    log_tool_result
+)
 
 logger = get_logger(__name__)
 
@@ -33,12 +43,14 @@ class PwnAgent(BaseAgent):
 
         exp_py = ctx.run_dir / "exp.py"
 
-        logger.info(f"PwnAgent started, binary: {binary}, plan_md: {plan_md}")
+        log_section(logger, "🚀 PwnAgent Starting")
+        log_info(logger, f"Binary: {binary}")
+        log_info(logger, f"Plan MD: {plan_md}")
 
         plan_text = ""
         if plan_md is not None and Path(plan_md).exists():
             plan_text = Path(plan_md).read_text(encoding="utf-8")
-            logger.info(f"Loaded plan from {plan_md}")
+            log_success(logger, f"Loaded plan from {plan_md}")
 
         skill_for_pwn = load_skill("core", "pwndbg") + load_skill("core", "pwntools")
         skills_index = list_skills()
@@ -66,7 +78,7 @@ class PwnAgent(BaseAgent):
         final_debug_md: str | None = None
         final_report_md: str | None = None
 
-        logger.info(f"Starting multi-round LLM loop, max rounds: {max_rounds}")
+        log_info(logger, f"Starting multi-round LLM loop (max rounds: {max_rounds})")
 
         messages = [
             {"role": "system", "content": PWN_AGENT_SYSTEM_PROMPT + "\n\n" + SKILL_PROMPT + "\n\n" + system_base_context},
@@ -74,7 +86,7 @@ class PwnAgent(BaseAgent):
         ]
 
         for round_idx in range(1, max_rounds + 1):
-            logger.info(f"Round {round_idx}/{max_rounds}")
+            log_step(logger, round_idx, max_rounds, "Processing LLM request")
             if last_code is not None and last_result is not None:
                 debug_parts: List[str] = []
                 debug_parts.append("\n# 上一轮的 exp.py\n\n```python\n")
@@ -88,11 +100,9 @@ class PwnAgent(BaseAgent):
                 logger.debug(f"Added debug output from previous round to messages")
 
             try:
-                log_llm_request(logger, messages, tools=tools.schemas)
                 resp = llm.complete(messages, tools=tools.schemas)
-                log_llm_response(logger, resp)
             except Exception as exc:
-                logger.error(f"Failed to complete plan in round {round_idx}: {exc}")
+                log_error(logger, f"Failed to complete plan in round {round_idx}: {exc}")
                 raise RuntimeError(f"Failed to complete plan: {exc}") from exc
 
             if not isinstance(resp, dict):
@@ -102,7 +112,7 @@ class PwnAgent(BaseAgent):
 
             tool_calls = resp.get("tool_calls", None)
             if isinstance(tool_calls, list) and tool_calls:
-                logger.info(f"Received {len(tool_calls)} tool calls in round {round_idx}")
+                log_info(logger, f"Received {len(tool_calls)} tool calls in round {round_idx}")
                 for call in tool_calls:
                     if not isinstance(call, dict):
                         continue
@@ -120,9 +130,9 @@ class PwnAgent(BaseAgent):
                         args = {}
                     if not isinstance(args, dict):
                         args = {}
-                    logger.debug(f"Executing tool: {name} with args: {args}")
+                    log_tool_call(logger, name, args)
                     result: ToolResult = tools.run(name, **args)
-                    logger.debug(f"Tool {name} completed with returncode: {result.returncode}")
+                    log_tool_result(logger, name, result.returncode)
                     tool_content_parts: List[str] = []
                     tool_content_parts.append(f"# Tool result: {result.name}\n")
                     tool_content_parts.append(f"- args: {json.dumps(result.args, ensure_ascii=False)}\n")
@@ -144,13 +154,15 @@ class PwnAgent(BaseAgent):
 
             raw = resp.get("content", "")
             if not isinstance(raw, str) or not raw.strip():
-                logger.warning(f"Empty response in round {round_idx}")
+                log_warning(logger, f"Empty response in round {round_idx}")
                 break
+            
+            log_info(logger, f"LLM Response Content:\n{raw}")
 
             try:
                 data = json.loads(raw)
             except Exception:
-                logger.warning(f"Invalid JSON response in round {round_idx}: {raw[:100]}...")
+                log_warning(logger, f"Invalid JSON response in round {round_idx}: {raw[:100]}...")
                 messages.append({"role": "user", "content": "返回的内容不是纯json，请重新返回"})
                 continue
 
@@ -161,40 +173,38 @@ class PwnAgent(BaseAgent):
                 report_md = str(data.get("report.md", ""))
                 think = str(data.get("think", ""))
             except Exception as e:
-                logger.error(f"Failed to parse JSON fields in round {round_idx}: {e}")
+                log_error(logger, f"Failed to parse JSON fields in round {round_idx}: {e}")
                 messages.append({"role": "user", "content": f"返回的json字段解析失败: {e}，请重新返回"})
                 continue
 
             if status not in {"continue", "finish"}:
-                logger.warning(f"Invalid status '{status}' in round {round_idx}")
+                log_warning(logger, f"Invalid status '{status}' in round {round_idx}")
                 messages.append({"role": "user", "content": "返回的status应当是continue或finish两者状态之一，继续分析任务"})
                 continue
 
-            logger.info(f"Round {round_idx} status: {status}")
             if think.strip():
-                logger.debug(f"Round {round_idx} think: {think[:100]}...")
                 messages.append({"role": "assistant", "content": f"[Think] {think.strip()}"})
 
             if exp_code.strip():
                 last_code = exp_code.strip()
                 exp_py.write_text(last_code, encoding="utf-8")
-                logger.info(f"Exp written to: {exp_py}")
+                log_success(logger, f"Exp written to: {exp_py}")
                 result = tools.run("exp_runner", script_path=str(exp_py), cwd=binary.parent)
                 last_result = result
-                logger.info(f"Exp runner executed with returncode: {result.returncode}")
+                log_info(logger, f"Exp runner executed with returncode: {result.returncode}")
 
             if status == "finish":
                 if debug_md.strip():
                     final_debug_md = debug_md.strip()
                 if report_md.strip():
                     final_report_md = report_md.strip()
-                logger.info(f"PwnAgent finished in round {round_idx}")
+                log_success(logger, f"PwnAgent finished in round {round_idx}")
                 break
 
             messages.append({"role": "user", "content": "继续"})
 
         if last_code is None:
-            logger.error("PwnAgent failed: no exp.py generated")
+            log_error(logger, "PwnAgent failed: no exp.py generated")
             raise RuntimeError("PwnAgent执行失败，没有生成exp.py")
 
         report_path = ctx.run_dir / "report.md"
@@ -202,20 +212,20 @@ class PwnAgent(BaseAgent):
 
         if final_report_md:
             report_path.write_text(final_report_md, encoding="utf-8")
-            logger.info(f"Report written to: {report_path}")
+            log_success(logger, f"Report written to: {report_path}")
         else:
-            logger.error("PwnAgent failed: no report.md generated")
+            log_error(logger, "PwnAgent failed: no report.md generated")
             raise RuntimeError("PwnAgent执行失败，没有生成report.md")
 
         if final_debug_md:
             debug_path.write_text(final_debug_md, encoding="utf-8")
-            logger.info(f"Debug written to: {debug_path}")
+            log_success(logger, f"Debug written to: {debug_path}")
         else:
-            logger.error("PwnAgent failed: no debug.md generated")
+            log_error(logger, "PwnAgent failed: no debug.md generated")
             raise RuntimeError("PwnAgent执行失败，没有生成debug.md")
 
         (ctx.run_dir / "messages.json").write_text(
             json.dumps(messages, indent=2, ensure_ascii=False), encoding="utf-8"
         )
-        logger.info(f"Messages saved to: {ctx.run_dir / 'messages.json'}")
-        logger.info("PwnAgent completed successfully")
+        log_info(logger, f"Messages saved to: {ctx.run_dir / 'messages.json'}")
+        log_section(logger, "✅ PwnAgent Completed Successfully")
