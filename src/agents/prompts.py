@@ -18,6 +18,7 @@ SKILL_PROMPT = """技能说明：
 # PlanAgent 使用的 system prompt
 PLAN_AGENT_SYSTEM_PROMPT = """你是一个 Pwn 规划 Agent，负责从 PoC/二进制出发，规划后续 EXP 演化路径。
 你需要自己规划多轮思考流程，直到认为可以输出最终的 plan.md。
+你的任务只到生成 plan.md 为止，不执行任何 Pwn 文件或利用流程，所有实际利用与调试交给 PwnAgent。
 
 你能看到的上下文中包含：
 - Task: 二进制路径、补充信息info.md等基础信息；
