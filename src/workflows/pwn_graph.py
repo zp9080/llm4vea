@@ -11,6 +11,9 @@ from agents.pwn_agent import PwnAgent
 from agents.base_agent import RunContext
 from clients.llm_client import OpenAIClient
 from tools.tool_registry import ToolRegistry
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class PwnState(TypedDict):
@@ -64,11 +67,13 @@ def _build_run_context(state: PwnState) -> RunContext:
 def plan_node(state: PwnState) -> PwnState:
     """调用现有 PlanAgent，生成 plan.md。"""
 
+    logger.info(f"Plan node started with run_id: {state['run_id']}")
     ctx = _build_run_context(state)
     agent = PlanAgent(ctx)
     try:
         agent.run()
     except Exception as exc:  # 不中断整个 Graph，将错误写回状态
+        logger.error(f"PlanAgent error: {exc}")
         new_state: PwnState = dict(state)
         new_state["error"] = f"PlanAgent error: {exc}"
         return new_state
@@ -76,21 +81,25 @@ def plan_node(state: PwnState) -> PwnState:
     plan_path = ctx.plan_md or (ctx.run_dir / "plan.md")
     new_state = dict(state)
     new_state["plan_md_path"] = str(plan_path)
+    logger.info(f"Plan node completed, plan written to: {plan_path}")
     return new_state  # 下一步由 Graph 路由到 Pwn 节点
 
 
 def pwn_node(state: PwnState) -> PwnState:
     """调用现有 PwnAgent，基于 plan.md 生成 exp.py 并尝试运行。"""
 
+    logger.info(f"Pwn node started with run_id: {state['run_id']}")
     # 确保 Pwn 阶段能看到 plan.md
     ctx = _build_run_context(state)
     if state.get("plan_md_path"):
         ctx.plan_md = Path(state["plan_md_path"]).resolve()
+        logger.info(f"Using plan from: {ctx.plan_md}")
 
     agent = PwnAgent(ctx)
     try:
         agent.run()
     except Exception as exc:
+        logger.error(f"PwnAgent error: {exc}")
         new_state: PwnState = dict(state)
         new_state["error"] = f"PwnAgent error: {exc}"
         return new_state
@@ -99,6 +108,7 @@ def pwn_node(state: PwnState) -> PwnState:
     exp_path = ctx.run_dir / "exp.py"
     new_state = dict(state)
     new_state["exp_path"] = str(exp_path)
+    logger.info(f"Pwn node completed, exp written to: {exp_path}")
     return new_state
 
 
@@ -128,6 +138,9 @@ def run_pwn_workflow(project_root: Path, binary: Path, info_md: Optional[Path] =
     """
 
     run_id = datetime.now().strftime("%y-%m-%d-%H-%M-%S")
+    logger.info(f"Starting pwn workflow with run_id: {run_id}")
+    logger.info(f"Binary: {binary}, Info md: {info_md}")
+
     state: PwnState = {
         "run_id": run_id,
         "project_root": str(project_root.resolve()),
@@ -141,7 +154,15 @@ def run_pwn_workflow(project_root: Path, binary: Path, info_md: Optional[Path] =
     # 确保 run 目录存在
     run_dir = project_root / "runs" / run_id
     run_dir.mkdir(parents=True, exist_ok=True)
+    logger.info(f"Run directory created: {run_dir}")
 
     graph = build_pwn_graph()
     final_state: PwnState = graph.invoke(state)
+
+    if final_state.get("error"):
+        logger.error(f"Workflow completed with error: {final_state['error']}")
+    else:
+        logger.info("Workflow completed successfully")
+        logger.info(f"Final plan: {final_state.get('plan_md_path')}, Final exp: {final_state.get('exp_path')}")
+
     return final_state

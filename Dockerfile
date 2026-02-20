@@ -20,7 +20,8 @@ RUN apt-get update && apt-get install -y \
     python3-pip \
     ruby \
     gdb \
-    build-essential
+    build-essential \
+    patchelf
 
 # 1. Install one_gadget (Blog: "sudo apt update ... gem install one_gadget")
 RUN gem install one_gadget
