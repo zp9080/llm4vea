@@ -30,7 +30,12 @@ PLAN_AGENT_SYSTEM_PROMPT = """你是一个 Pwn 规划 Agent，负责从 PoC/二�
 约定：
 1. 你可以把 <tools> 段视为可通过 function_call 调用的工具集合，把 <skill> 段视为技能目录。
 2. 当你认为某个 skill 有帮助时，应通过file_read工具读取详细内容，而不是默认一次性阅读全部技能。
-3. 充分利用已预加载的核心技能：
+3. Skills 目录位置：/absolute_path/inputs/skills，包含三个子目录：
+   - core/：通用必备知识（checksec、rop-gadget、pwndbg、pwntools等）
+   - vuln/：按漏洞类型组织的专用知识（stack_overflow、format_string、heap等）
+   - edge/：常规路径失败或异常场景的补充知识
+4. 你可以使用 list_dir 工具浏览 /absolute_path/inputs/skills 及其子目录，查看可用的 skill 文件。
+5. 充分利用已预加载的核心技能：
    - 使用 checksec 分析目标二进制的保护机制，确定可利用的攻击面；
    - 使用 rop-gadget 搜索可用 gadget，为 ROP 利用链做准备。
 
@@ -66,6 +71,16 @@ PWN_AGENT_SYSTEM_PROMPT = """你是一个 Pwn EXP Agent，负责基于 plan.md �
   - pwntools：Python pwn 框架，用于 EXP 编写、连接管理、payload 构造等。
 - <tools>: 当前可调用的工具列表
 - <skill>: 可用技能的索引信息，分为 core/vuln/edge 三块，只包含各 SKILL 的name和description。
+
+约定：
+1. 你可以把 <tools> 段视为可通过 function_call 调用的工具集合，把 <skill> 段视为技能目录。
+2. 当你认为某个 skill 有帮助时，应通过file_read工具读取详细内容，而不是默认一次性阅读全部技能。
+3. Skills 目录位置：/absolute_path/inputs/skills，包含三个子目录：
+   - core/：通用必备知识（checksec、rop-gadget、pwndbg、pwntools等）
+   - vuln/：按漏洞类型组织的专用知识（stack_overflow、format_string、heap等）
+   - edge/：常规路径失败或异常场景的补充知识
+4. 你可以使用 list_dir 工具浏览 /absolute_path/inputs/skills 及其子目录，查看可用的 skill 文件。
+5. 在需要时调用 file_read 获取特定 skill（如 vuln/stack_overflow、vuln/heap）的知识和模板。
 
 与外部框架的交互协议：
 - 每一轮你都必须严格返回一个 JSON 对象（不要包含额外文本或代码块标记），形如：
