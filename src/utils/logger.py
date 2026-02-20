@@ -150,15 +150,16 @@ def log_tool_result(logger: logging.Logger, tool_name: str, returncode: int, std
     
     if stdout:
         logger.info(f"{Colors.OKCYAN}   stdout:{Colors.ENDC}")
-        for line in stdout.split('\n')[:10]:  # 只显示前10行
+        lines = stdout.splitlines()
+        for line in lines[:10]:  # 只显示前10行
             logger.info(f"      {line}")
-        if len(stdout.split('\n')) > 10:
-            logger.info(f"      ... ({len(stdout.split('\n')) - 10} more lines)")
+        if len(lines) > 10:
+            logger.info(f"      ... ({len(lines) - 10} more lines)")
     
     if stderr:
         logger.warning(f"{Colors.OKCYAN}   stderr:{Colors.ENDC}")
-        for line in stderr.split('\n')[:10]:  # 只显示前10行
+        err_lines = stderr.splitlines()
+        for line in err_lines[:10]:  # 只显示前10行
             logger.warning(f"      {line}")
-        if len(stderr.split('\n')) > 10:
-            logger.warning(f"      ... ({len(stderr.split('\n')) - 10} more lines)")
-
+        if len(err_lines) > 10:
+            logger.warning(f"      ... ({len(err_lines) - 10} more lines)")
