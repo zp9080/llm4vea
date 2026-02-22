@@ -28,8 +28,8 @@ class PwnAgent(BaseAgent):
 
     设计要点：
     - 每一轮由 LLM 决定是继续迭代(`status=continue`)还是结束(`status=finish`)；
-    - 框架在每轮后执行 exp-runner，将 stdout/stderr 摘要作为下一轮的调试信号；
-    - 设定最大轮数上限（如 10）防止死循环。"""
+    - LLM 通过工具直接写 exp.py 并执行 exp_runner，工具调用结果自动进入 messages；
+    - 设定最大轮数上限防止死循环。"""
 
     def __init__(self, ctx: RunContext) -> None:
         super().__init__(ctx, name="PwnAgent")
@@ -46,6 +46,7 @@ class PwnAgent(BaseAgent):
         log_section(logger, "🚀 PwnAgent Starting")
         log_info(logger, f"Binary: {binary}")
         log_info(logger, f"Plan MD: {plan_md}")
+        log_info(logger, f"Exp path: {exp_py}")
 
         plan_text = ""
         if plan_md is not None and Path(plan_md).exists():
@@ -57,7 +58,7 @@ class PwnAgent(BaseAgent):
         tools_index = tools.list_tools()
 
         user_parts: List[str] = []
-        user_parts.append(f"# Task\n- binary_path: {binary}\n")
+        user_parts.append(f"# Task\n- binary_path: {binary}\n- exp_path: {exp_py}\n")
         if plan_text:
             user_parts.append("\n# plan.md\n\n" + plan_text + "\n")
         user_base_context = "".join(user_parts)
@@ -73,9 +74,6 @@ class PwnAgent(BaseAgent):
         system_base_context = "".join(system_parts)
 
         max_rounds = 30
-        last_result: ToolResult | None = None
-        last_code: str | None = None
-        final_debug_md: str | None = None
         final_report_md: str | None = None
 
         log_info(logger, f"Starting multi-round LLM loop (max rounds: {max_rounds})")
@@ -92,17 +90,6 @@ class PwnAgent(BaseAgent):
         try:
             for round_idx in range(1, max_rounds + 1):
                 log_step(logger, round_idx, max_rounds, "Processing LLM request")
-                if last_code is not None and last_result is not None:
-                    debug_parts: List[str] = []
-                    debug_parts.append("\n# 上一轮的 exp.py\n\n```python\n")
-                    debug_parts.append(last_code)
-                    debug_parts.append("\n```\n")
-                    debug_parts.append("\n# 上一轮运行的调试输出 (stdout/stderr 摘要)\n\n```text\n")
-                    debug_snippet = (last_result.stdout + "\n" + last_result.stderr)
-                    debug_parts.append(debug_snippet)
-                    debug_parts.append("\n```\n")
-                    messages.append({"role": "user", "content": "".join(debug_parts)})
-                    logger.debug(f"Added debug output from previous round to messages")
 
                 try:
                     resp = llm.complete(messages, tools=tools.schemas)
@@ -169,8 +156,6 @@ class PwnAgent(BaseAgent):
 
                 try:
                     status = str(data.get("status", "")).lower()
-                    exp_code = str(data.get("exp.py", ""))
-                    debug_md = str(data.get("debug.md", ""))
                     report_md = str(data.get("report.md", ""))
                     think = str(data.get("think", ""))
                 except Exception as e:
@@ -186,17 +171,7 @@ class PwnAgent(BaseAgent):
                 if think.strip():
                     messages.append({"role": "assistant", "content": f"[Think] {think.strip()}"})
 
-                if exp_code.strip():
-                    last_code = exp_code.strip()
-                    exp_py.write_text(last_code, encoding="utf-8")
-                    log_success(logger, f"Exp written to: {exp_py}")
-                    result = tools.run("exp_runner", script_path=str(exp_py), cwd=binary.parent)
-                    last_result = result
-                    log_tool_result(logger, "exp_runner", result.returncode, result.stdout, result.stderr)
-
                 if status == "finish":
-                    if debug_md.strip():
-                        final_debug_md = debug_md.strip()
                     if report_md.strip():
                         final_report_md = report_md.strip()
                     log_success(logger, f"PwnAgent finished in round {round_idx}")
@@ -209,25 +184,12 @@ class PwnAgent(BaseAgent):
             )
             log_info(logger, f"Messages saved to: {ctx.run_dir / 'messages.json'}")
 
-        if last_code is None:
-            log_error(logger, "PwnAgent failed: no exp.py generated")
-            raise RuntimeError("PwnAgent执行失败，没有生成exp.py")
-
         report_path = ctx.run_dir / "report.md"
-        debug_path = ctx.run_dir / "debug.md"
-
         if final_report_md:
             report_path.write_text(final_report_md, encoding="utf-8")
             log_success(logger, f"Report written to: {report_path}")
         else:
             log_error(logger, "PwnAgent failed: no report.md generated")
             raise RuntimeError("PwnAgent执行失败，没有生成report.md")
-
-        if final_debug_md:
-            debug_path.write_text(final_debug_md, encoding="utf-8")
-            log_success(logger, f"Debug written to: {debug_path}")
-        else:
-            log_error(logger, "PwnAgent failed: no debug.md generated")
-            raise RuntimeError("PwnAgent执行失败，没有生成debug.md")
 
         log_section(logger, "✅ PwnAgent Completed Successfully")

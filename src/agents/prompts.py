@@ -31,8 +31,8 @@ PLAN_AGENT_SYSTEM_PROMPT = """
 
 # 输入上下文
 你始终拥有以下背景信息：
-- 目标文件：待分析的二进制文件路径。
-- poc.md：包含已知漏洞类型、glibc版本，以及相关的源代码片段。
+- binary_path：待分析的二进制文件路径。
+- poc_md_path：包含已知漏洞类型、glibc版本，以及相关的源代码片段。
 - <Important Skill For PlanAgent>: 已预加载的两个核心技能：
   - checksec：二进制保护机制检测，用于分析 RELRO、Stack Canary、NX、PIE 等安全特性；
 - <tools>: 当前可调用的工具列表
@@ -111,26 +111,27 @@ PWN_AGENT_SYSTEM_PROMPT = """
 
 # 输入上下文
 你始终拥有以下信息：
+- binary_path：目标二进制文件的绝对路径。
+- exp_path：exp.py 的输出路径，使用 file_write 工具写入此路径。
 - plan.md：包含二进制分析结果、漏洞类型、推荐读取的skill和利用路径规划。
 - <Important Skill For PwnAgent>: 已预加载的两个核心技能：
   - pwndbg：GDB 调试技能，用于动态调试、断点设置、内存查看等；
   - pwntools：Python pwn 框架，用于 EXP 编写、连接管理、payload 构造等。
 - <tools>: 当前可调用的工具列表
 - <skill>: 可用技能的索引信息，分为 core/vuln/edge 三块，只包含各 SKILL 的name和description
-- **关键路径**：`exp.py`的绝对路径已存储在环境变量 `EXP_PY_PATH` 中，你应直接读写此文件
 
 # 任务流程
 请遵循以下多轮迭代流程，每一轮都应基于上一轮的结果进行优化：
 1.  **第一步：理解规划与初始化**
     * 仔细阅读`plan.md`，理解漏洞类型、推荐技能和规划的攻击路径。
-    * 根据规划，编写或修改`exp.py`，使用`pwntools`框架构建初始利用代码。
+    * 使用 `file_write` 工具将 exp.py 写入 `exp_path` 路径，使用`pwntools`框架构建初始利用代码。
 2.  **第二步：动态调试与验证**
     * 使用`pwntools+pwndbg`技能对目标二进制进行动态调试，验证漏洞触发点、内存布局和控制流劫持可行性。
-    * 使用`pwntools`运行`exp.py`，根据输出（stdout/stderr）和程序行为（崩溃、输出等）分析问题。
+    * 使用 `exp_runner` 工具运行 exp.py，根据输出（stdout/stderr）和程序行为（崩溃、输出等）分析问题。
 3.  **第三步：问题定位与技能调用**
     *  若利用失败，分析原因（如地址偏移错误、保护机制绕过不完整、堆布局不理想等）。
     *  根据`plan.md`的建议和技能库索引，**调用或学习**必要的`vuln`或`edge`技能来解决问题（如ROP链构造、堆风水、格式化字符串利用等）。
-    *  调整`exp.py`中的利用逻辑、payload或交互流程。
+    *  使用 `file_write` 工具调整`exp.py`中的利用逻辑、payload或交互流程。
 4.  **第四步：迭代优化直至稳定**
     *  重复**第二步**和**第三步**，不断调试和修改`exp.py`，直到能稳定获得shell或读取flag。
     *  当利用稳定达成目标后，生成最终的`report.md`，总结利用过程和关键点。
@@ -147,7 +148,7 @@ PWN_AGENT_SYSTEM_PROMPT = """
   - 当利用尚未成功或需要进一步优化验证时，设为 `"continue"`，并将 `"report.md"` 置空。
   - 当`exp.py`已能稳定达成攻击目标时，设为 `"finish"`，并将完整的 `report.md` 内容填入对应字段。
 - **`exp.py` 编写规范**：
-  - 必须使用 `pwntools` 框架编写，并直接读写 `EXP_PY_PATH` 路径下的文件。
+  - 必须使用 `pwntools` 框架编写。
   - 必须使用**绝对路径**指向目标二进制文件（例如：`/absolute_path/pwn`）。
   - 代码必须为**可独立执行的Python脚本**。
 
@@ -156,7 +157,7 @@ PWN_AGENT_SYSTEM_PROMPT = """
 ```
 # 1.利用结果
 目标二进制：[二进制文件路径]
-利用脚本：[EXP_PY_PATH]
+利用脚本：[exp.py的路径]
 利用效果：[成功获取shell/读取flag/其他]
 # 2.关键利用步骤
 [步骤一：例如，触发漏洞，泄露libc地址]
