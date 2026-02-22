@@ -186,7 +186,7 @@
       "type": "function",
       "function": {
         "name": "exp_runner",
-        "description": "Execute a Python exploit script and detect success patterns (flags, shells, etc.).",
+        "description": "Execute a python exploit script",
         "parameters": {
           "type": "object",
           "properties": {
