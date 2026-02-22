@@ -190,6 +190,7 @@ class PlanAgent(BaseAgent):
             (self.ctx.run_dir / "messages.json").write_text(
                 json.dumps(messages, indent=2, ensure_ascii=False), encoding="utf-8"
             )
+            log_info(logger, f"Messages saved to: {self.ctx.run_dir / 'messages.json'}")
 
         log_success(logger, f"Plan written to: {plan_path}")
         # 3. 存储plan.md
@@ -197,5 +198,4 @@ class PlanAgent(BaseAgent):
             log_error(logger, "PlanAgent failed: no final plan generated")
             raise RuntimeError("PlanAgent执行失败，没有返回plan.md")
         plan_path.write_text(final_plan, encoding="utf-8")
-        log_info(logger, f"Messages saved to: {self.ctx.run_dir / 'messages.json'}")
         log_section(logger, "✅ PlanAgent Completed Successfully")

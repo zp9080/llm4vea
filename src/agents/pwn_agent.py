@@ -207,6 +207,7 @@ class PwnAgent(BaseAgent):
             (ctx.run_dir / "messages.json").write_text(
                 json.dumps(messages, indent=2, ensure_ascii=False), encoding="utf-8"
             )
+            log_info(logger, f"Messages saved to: {ctx.run_dir / 'messages.json'}")
 
         if last_code is None:
             log_error(logger, "PwnAgent failed: no exp.py generated")
@@ -229,5 +230,4 @@ class PwnAgent(BaseAgent):
             log_error(logger, "PwnAgent failed: no debug.md generated")
             raise RuntimeError("PwnAgent执行失败，没有生成debug.md")
 
-        log_info(logger, f"Messages saved to: {ctx.run_dir / 'messages.json'}")
         log_section(logger, "✅ PwnAgent Completed Successfully")
