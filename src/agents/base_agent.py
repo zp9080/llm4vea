@@ -22,7 +22,7 @@ class RunContext:
     project_root: Path
     run_dir: Path
     binary: Path
-    info_md: Optional[Path]
+    poc_md: Optional[Path]
     plan_md: Optional[Path]
     tools: ToolRegistry
     llm: BaseLLMClient

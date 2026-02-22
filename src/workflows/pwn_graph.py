@@ -23,7 +23,7 @@ class PwnState(TypedDict):
     project_root: str
 
     binary_path: str
-    info_md_path: Optional[str]
+    poc_md_path: Optional[str]
 
     plan_md_path: Optional[str]
     exp_path: Optional[str]
@@ -145,7 +145,7 @@ def run_pwn_workflow(project_root: Path, binary: Path, info_md: Optional[Path] =
         "run_id": run_id,
         "project_root": str(project_root.resolve()),
         "binary_path": str(binary.resolve()),
-        "info_md_path": str(info_md.resolve()) if info_md is not None else None,
+        "poc_md_path": str(info_md.resolve()) if info_md is not None else None,
         "plan_md_path": None,
         "exp_path": None,
         "error": None,

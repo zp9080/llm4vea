@@ -64,7 +64,7 @@ class PwnAgent(BaseAgent):
 
         system_parts: List[str] = []
         if skill_for_pwn:
-            system_parts.append("\n# Important Skill For Pwn\n")
+            system_parts.append("\n# Important Skill For PwnAgent\n")
             system_parts.append(skill_for_pwn)
         system_parts.append("\n# Tools index\n")
         system_parts.append(tools_index)
@@ -72,7 +72,7 @@ class PwnAgent(BaseAgent):
         system_parts.append(skills_index)
         system_base_context = "".join(system_parts)
 
-        max_rounds = 50
+        max_rounds = 30
         last_result: ToolResult | None = None
         last_code: str | None = None
         final_debug_md: str | None = None

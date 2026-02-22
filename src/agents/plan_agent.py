@@ -30,7 +30,7 @@ class PlanAgent(BaseAgent):
     """多轮 LLM 驱动的规划 Agent。
 
     设计要点：
-    - 外部输入尽量简单：二进制路径 + info_md；
+    - 外部输入尽量简单：二进制路径 + poc_md；
     - skills 作为高优先级“工具”，通过 <skills> 索引暴露 name/description，是否深入阅读由 LLM 自己决定；
     - 多轮循环由 LLM 通过 status 决定何时结束，我们只设置最大轮数上限防止死循环。"""
 
@@ -41,36 +41,36 @@ class PlanAgent(BaseAgent):
         ctx = self.ctx
         tools = ctx.tools
         binary = ctx.binary
-        info_md = ctx.info_md
+        poc_md = ctx.poc_md
         llm = ctx.llm
 
         log_section(logger, "🚀 PlanAgent Starting")
         log_info(logger, f"Binary: {binary}")
-        if info_md:
-            log_info(logger, f"Info MD: {info_md}")
+        if poc_md:
+            log_info(logger, f"Poc: {poc_md}")
 
         skills_index = list_skills()
         tools_index = tools.list_tools()
-        skill_for_plan = load_skill("core", "checksec") + load_skill("core", "rop-gadget")
+        skill_for_plan = load_skill("core", "checksec")
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         plan_path = ctx.run_dir / "plan.md"
 
         user_parts: List[str] = ["# Task\n", f"- binary_path: {binary}\n"]
-        if info_md is not None:
-            user_parts.append(f"- info_md_path: {info_md}\n")
+        if poc_md is not None:
+            user_parts.append(f"- poc_md_path: {poc_md}\n")
         user_parts.append(f"- generated_at: {now}\n")
 
-        if info_md is not None and info_md.exists():
-            user_parts.append("\n## Input info markdown\n\n```markdown\n")
-            user_parts.append(info_md.read_text(encoding="utf-8"))
+        if poc_md is not None and poc_md.exists():
+            user_parts.append("\n## Input Poc.md\n\n```markdown\n")
+            user_parts.append(poc_md.read_text(encoding="utf-8"))
             user_parts.append("\n```\n")
 
         user_base_context = "".join(user_parts)
 
         system_parts: List[str] = []
         if skill_for_plan:
-            system_parts.append("\n# Important Skill For Plan\n")
+            system_parts.append("\n# Important Skill For PlanAgent\n")
             system_parts.append(skill_for_plan)
 
         system_parts.append("\n# Tools index\n")
@@ -82,7 +82,7 @@ class PlanAgent(BaseAgent):
         system_base_context = "".join(system_parts)
 
         # 2. LLM 自主控制的多轮循环
-        max_rounds = 50
+        max_rounds = 15
         final_plan: str | None = None
 
         log_info(logger, f"Starting multi-round LLM loop (max rounds: {max_rounds})")
