@@ -6,12 +6,11 @@ if str(src_dir) not in sys.path:
     sys.path.insert(0, str(src_dir))
 
 import streamlit as st
-from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Optional
 import json
 
 from session_manager import SessionManager, SessionState, AgentPhase
-from interactive_agent import InteractivePwnAgent, StepResult
+from agents.interactive_agent import InteractivePwnAgent, StepResult
 
 
 def _project_root() -> Path:
