@@ -12,5 +12,5 @@ docker run -it --rm pwn-u22 /bin/bash
 ```
 
 # Streamlit
-streamlit run src/web_ui.py --server.headless true
+streamlit run src/web_ui.py --server.headless true  --server.port 8502
 
