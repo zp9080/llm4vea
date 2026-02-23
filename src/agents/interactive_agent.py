@@ -185,12 +185,18 @@ class InteractivePwnAgent:
         
         messages = list(self.session.messages)
         
+        has_system_prompt = any(msg.get("role") == "system" for msg in messages)
+        
         if not messages:
             user_context = self._build_user_context(user_input, current_phase)
             messages = [
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_context},
             ]
+        elif not has_system_prompt:
+            messages.insert(0, {"role": "system", "content": system_prompt})
+            if user_input.strip():
+                messages.append({"role": "user", "content": user_input})
         else:
             if user_input.strip():
                 messages.append({"role": "user", "content": user_input})
@@ -386,6 +392,9 @@ class InteractivePwnAgent:
         if phase not in {AgentPhase.PLAN.value, AgentPhase.PWN.value, AgentPhase.IDLE.value}:
             raise ValueError(f"Invalid phase: {phase}")
         self.session.phase = phase
+        self.session.messages = [
+            msg for msg in self.session.messages if msg.get("role") != "system"
+        ]
         self.session_manager.save_session(self.session)
 
     def reset_phase(self, phase: str = AgentPhase.PLAN.value) -> None:

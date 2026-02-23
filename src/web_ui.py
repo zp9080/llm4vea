@@ -221,6 +221,7 @@ def render_chat_interface():
     with col3:
         if st.button("🔄 重置", use_container_width=True):
             agent.reset_phase()
+            st.session_state.processing = False
             st.session_state.step_results = []
             st.rerun()
     
@@ -243,16 +244,18 @@ def render_chat_interface():
         )
         st.session_state.max_steps = max_steps
     
-    col_phase1, col_phase2, col_phase3 = st.columns([1, 1, 2])
+    col_phase1, col_phase2 = st.columns([1, 1])
     with col_phase1:
         if st.button("🔵 切换到 Plan", use_container_width=True, disabled=(session.phase == AgentPhase.PLAN.value)):
             agent.switch_phase(AgentPhase.PLAN.value)
             st.session_state.step_results = []
+            st.session_state.processing = False
             st.rerun()
     with col_phase2:
         if st.button("🟡 切换到 Pwn", use_container_width=True, disabled=(session.phase == AgentPhase.PWN.value)):
             agent.switch_phase(AgentPhase.PWN.value)
             st.session_state.step_results = []
+            st.session_state.processing = False
             st.rerun()
     
     st.markdown("---")
@@ -281,7 +284,7 @@ def render_chat_interface():
             render_step_result(result)
     
     if st.session_state.processing:
-        st.info("⏳ Agent 正在处理...")
+        st.warning("⏳ Agent 正在处理... 如果已停止，请点击上方的「🔄 重置状态」按钮")
     
     st.markdown("---")
     
