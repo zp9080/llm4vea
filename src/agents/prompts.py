@@ -96,7 +96,7 @@ checksec 结果，已识别的漏洞类型: [例如：栈溢出、堆UAF、格�
 总体利用思路: [简述达成getshell或任意代码执行的核心思路]
 可能的利用链枚举:
 [路径一，例如：信息泄露 → 计算libc基址 → ret2libc]
-[路径二，例如：堆溢出 → tcache poisoning → 写__free_hook→ system]
+[路径二，例如：堆溢出 → tcache poison → 写__free_hook→ system]
 关键前置条件/不确定点:
 [例如：需要首先泄露栈地址或libc地址]
 [例如：需要精确控制某数据结构的大小或内容]

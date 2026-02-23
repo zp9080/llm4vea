@@ -35,6 +35,59 @@ class StepResult:
         self.phase = phase
         self.error = error
 
+    def to_dict(self) -> Dict[str, Any]:
+        result: Dict[str, Any] = {
+            "step_type": self.step_type,
+            "content": self.content,
+        }
+        if self.tool_name:
+            result["tool_name"] = self.tool_name
+        if self.tool_args:
+            result["tool_args"] = self.tool_args
+        if self.tool_result:
+            result["tool_result"] = {
+                "returncode": self.tool_result.returncode,
+                "stdout": self.tool_result.stdout,
+                "stderr": self.tool_result.stderr,
+            }
+        if self.think:
+            result["think"] = self.think
+        if self.phase:
+            result["phase"] = self.phase
+        if self.error:
+            result["error"] = self.error
+        return result
+
+    @classmethod
+    def from_dict(cls, data: Dict[str, Any]) -> "StepResult":
+        tool_result_data = data.get("tool_result")
+        if isinstance(tool_result_data, dict):
+            from tools.tool_registry import ToolResult
+            tool_args = data.get("tool_args", {})
+            if not isinstance(tool_args, dict):
+                tool_args = {}
+            
+            tool_result = ToolResult(
+                name=data.get("tool_name", ""),
+                args=tool_args,
+                returncode=tool_result_data.get("returncode", -1),
+                stdout=tool_result_data.get("stdout", ""),
+                stderr=tool_result_data.get("stderr", ""),
+            )
+        else:
+            tool_result = None
+        
+        return cls(
+            step_type=data.get("step_type", ""),
+            content=data.get("content", ""),
+            tool_name=data.get("tool_name"),
+            tool_args=data.get("tool_args"),
+            tool_result=tool_result,
+            think=data.get("think"),
+            phase=data.get("phase"),
+            error=data.get("error"),
+        )
+
 
 class InteractivePwnAgent:
     def __init__(
@@ -144,6 +197,11 @@ class InteractivePwnAgent:
         
         step_count = 0
         
+        def emit_result(result: StepResult) -> StepResult:
+            self.session.step_results.append(result.to_dict())
+            self.session_manager.save_session(self.session)
+            return result
+        
         while step_count < max_steps:
             step_count += 1
             
@@ -151,17 +209,17 @@ class InteractivePwnAgent:
                 resp = self.llm.complete(messages, tools=self.tools.schemas)
             except Exception as exc:
                 logger.error(f"LLM complete failed: {exc}")
-                yield StepResult(
+                yield emit_result(StepResult(
                     step_type="error",
                     error=f"LLM 调用失败: {exc}",
-                )
+                ))
                 return
             
             if not isinstance(resp, dict):
-                yield StepResult(
+                yield emit_result(StepResult(
                     step_type="error",
                     error=f"LLM 返回格式错误: {type(resp)}",
-                )
+                ))
                 return
             
             messages.append(resp)
@@ -191,12 +249,12 @@ class InteractivePwnAgent:
                     
                     logger.info(f"Tool call: {name} with args: {args}")
                     
-                    yield StepResult(
+                    yield emit_result(StepResult(
                         step_type="tool_call",
                         tool_name=name,
                         tool_args=args,
                         phase=current_phase,
-                    )
+                    ))
                     
                     result: ToolResult = self.tools.run(name, **args)
                     
@@ -209,12 +267,12 @@ class InteractivePwnAgent:
                     }
                     self.session.tool_history.append(tool_history_entry)
                     
-                    yield StepResult(
+                    yield emit_result(StepResult(
                         step_type="tool_result",
                         tool_name=name,
                         tool_result=result,
                         phase=current_phase,
-                    )
+                    ))
                     
                     tool_content_parts: List[str] = []
                     tool_content_parts.append(f"# Tool result: {result.name}\n")
@@ -246,11 +304,11 @@ class InteractivePwnAgent:
                     messages.append({"role": "assistant", "content": raw})
                     self.session.messages = messages
                     self.session_manager.save_session(self.session)
-                    yield StepResult(
+                    yield emit_result(StepResult(
                         step_type="message",
                         content=raw,
                         phase=current_phase,
-                    )
+                    ))
                 continue
             
             status = str(data.get("status", "")).lower()
@@ -259,11 +317,11 @@ class InteractivePwnAgent:
             report_md = str(data.get("report.md", ""))
             
             if think.strip():
-                yield StepResult(
+                yield emit_result(StepResult(
                     step_type="think",
                     content=think.strip(),
                     phase=current_phase,
-                )
+                ))
                 messages.append({"role": "assistant", "content": f"[Think] {think.strip()}"})
             
             if status == "finish":
@@ -274,21 +332,21 @@ class InteractivePwnAgent:
                         self.session.plan_content = self.plan_content
                         self.session.plan_md_path = str(self.plan_md)
                         
-                        yield StepResult(
+                        yield emit_result(StepResult(
                             step_type="plan_complete",
                             content=self.plan_content,
                             phase=current_phase,
-                        )
+                        ))
                     
                     self.session.phase = AgentPhase.PWN.value
                     current_phase = AgentPhase.PWN.value
                     self.session_manager.save_session(self.session)
                     
-                    yield StepResult(
+                    yield emit_result(StepResult(
                         step_type="phase_change",
                         content="Plan 阶段完成，进入 Pwn 阶段",
                         phase=current_phase,
-                    )
+                    ))
                     
                     system_prompt = self._build_system_prompt(current_phase)
                     messages = [
@@ -304,20 +362,20 @@ class InteractivePwnAgent:
                         report_path.write_text(self.report_content, encoding="utf-8")
                         self.session.report_content = self.report_content
                         
-                        yield StepResult(
+                        yield emit_result(StepResult(
                             step_type="report_complete",
                             content=self.report_content,
                             phase=current_phase,
-                        )
+                        ))
                     
                     self.session.phase = AgentPhase.FINISHED.value
                     self.session_manager.save_session(self.session)
                     
-                    yield StepResult(
+                    yield emit_result(StepResult(
                         step_type="finished",
                         content="所有阶段已完成",
                         phase=AgentPhase.FINISHED.value,
-                    )
+                    ))
                     return
             
             self.session.messages = messages
@@ -334,5 +392,6 @@ class InteractivePwnAgent:
         self.session.phase = phase
         self.session.messages = []
         self.session.tool_history = []
+        self.session.step_results = []
         self.session_manager.save_session(self.session)
 

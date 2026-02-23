@@ -117,7 +117,7 @@ def render_sidebar():
                     session,
                     get_session_manager()
                 )
-                st.session_state.step_results = []
+                st.session_state.step_results = session.step_results.copy() if session.step_results else []
                 st.rerun()
         
         with col2:
@@ -137,7 +137,12 @@ def render_chat_message(role: str, content: str):
         st.markdown(content)
 
 
-def render_step_result(result: StepResult):
+def render_step_result(result_data):
+    if isinstance(result_data, dict):
+        result = StepResult.from_dict(result_data)
+    else:
+        result = result_data
+    
     if result.step_type == "think":
         with st.expander("💭 思考过程", expanded=False):
             st.markdown(result.content)
@@ -149,7 +154,8 @@ def render_step_result(result: StepResult):
                 st.json(result.tool_args)
     
     elif result.step_type == "tool_result":
-        returncode = result.tool_result.returncode
+        result_dict = result.tool_result if isinstance(result.tool_result, dict) else vars(result.tool_result)
+        returncode = result_dict.get("returncode", -1)
         success = returncode == 0
         
         icon = "✅" if success else "❌"
@@ -157,12 +163,14 @@ def render_step_result(result: StepResult):
             f"{icon} 工具结果: {result.tool_name} (exit: {returncode})",
             expanded=not success
         ):
-            if result.tool_result.stdout:
+            stdout = result_dict.get("stdout", "")
+            if stdout:
                 st.subheader("stdout")
-                st.code(result.tool_result.stdout, language="text")
-            if result.tool_result.stderr:
+                st.code(stdout, language="text")
+            stderr = result_dict.get("stderr", "")
+            if stderr:
                 st.subheader("stderr")
-                st.code(result.tool_result.stderr, language="text")
+                st.code(stderr, language="text")
     
     elif result.step_type == "plan_complete":
         st.success("✅ Plan 生成完成!")
@@ -194,6 +202,9 @@ def render_chat_interface():
     if not session or not agent:
         st.info("👈 请在左侧创建或选择一个会话")
         return
+    
+    if not st.session_state.step_results and session.step_results:
+        st.session_state.step_results = session.step_results.copy()
     
     col1, col2, col3 = st.columns([2, 2, 1])
     phase_display = {

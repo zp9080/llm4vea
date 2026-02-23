@@ -30,6 +30,7 @@ class SessionState:
     
     messages: List[Dict[str, Any]] = field(default_factory=list)
     tool_history: List[Dict[str, Any]] = field(default_factory=list)
+    step_results: List[Dict[str, Any]] = field(default_factory=list)
     
     plan_content: Optional[str] = None
     report_content: Optional[str] = None
