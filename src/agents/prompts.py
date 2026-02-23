@@ -87,11 +87,12 @@ checksec 结果，已识别的漏洞类型: [例如：栈溢出、堆UAF、格�
 漏洞点分析:
 [简明分析漏洞成因、可控输入及影响范围]
 # 3.推荐读取的skill
-- 必读 core skills：
-  - inputs/skills/core/xxx
-- 建议读取的 vuln skills：
-  - inputs/skills/vuln/heap/... 或 stack_overflow/... 等
-- 若涉及 edge 情况，提示对应 edge skill 路径
+**路径格式约束（禁止编造路径）：**
+- core skills格式：`inputs/skills/core/{name}.md`（如 pwntools.md, pwndbg.md）
+- vuln skills格式：`inputs/skills/vuln/{type}/knowledge/{name}.md` 或 `inputs/skills/vuln/{type}/templates/{name}.md`
+  - type可选：heap, stack_overflow, format_string
+- edge skills格式：`inputs/skills/edge/{name}.md`
+- **禁止使用模糊路径如 `inputs/skills/vuln/heap` 或编造不存在的文件名**
 # 4.利用路径规划假设
 总体利用思路: [简述达成getshell或任意代码执行的核心思路]
 可能的利用链枚举:
