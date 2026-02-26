@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import List
 
 from agents.base_agent import BaseAgent, RunContext
 from tools.tool_registry import ToolResult
@@ -125,23 +124,19 @@ class PwnAgent(BaseAgent):
                         log_tool_call(logger, name, args)
                         result: ToolResult = tools.run(name, **args)
                         log_tool_result(logger, name, result.returncode, result.stdout, result.stderr)
-                        tool_content_parts: List[str] = []
-                        tool_content_parts.append(f"# Tool result: {result.name}\n")
-                        tool_content_parts.append(f"- args: {json.dumps(result.args, ensure_ascii=False)}\n")
-                        tool_content_parts.append(f"- returncode: {result.returncode}\n\n")
-                        tool_content_parts.append("## stdout\n\n```text\n")
-                        tool_content_parts.append(result.stdout)
-                        tool_content_parts.append("\n```\n")
-                        tool_content_parts.append("\n## stderr\n\n```text\n")
-                        tool_content_parts.append(result.stderr)
-                        tool_content_parts.append("\n```\n")
-                        messages.append(
-                            {
-                                "role": "tool",
-                                "tool_call_id": call_id,
-                                "content": "".join(tool_content_parts),
-                            }
-                        )
+                        
+                        tool_result_data = {
+                            "name": name,
+                            "args": args,
+                            "returncode": result.returncode,
+                            "stdout": result.stdout,
+                            "stderr": result.stderr,
+                        }
+                        messages.append({
+                            "role": "tool",
+                            "tool_call_id": call_id,
+                            "content": json.dumps(tool_result_data, ensure_ascii=False),
+                        })
                     continue
 
                 raw = resp.get("content", "")

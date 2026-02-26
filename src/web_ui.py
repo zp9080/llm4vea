@@ -10,7 +10,7 @@ from typing import Optional
 import json
 
 from session_manager import SessionManager, SessionState, AgentPhase
-from agents.interactive_agent import InteractivePwnAgent, StepResult
+from agents.interactive_agent import InteractivePwnAgent
 
 
 def _project_root() -> Path:
@@ -30,9 +30,6 @@ def init_session_state():
     
     if "processing" not in st.session_state:
         st.session_state.processing = False
-    
-    if "step_results" not in st.session_state:
-        st.session_state.step_results = []
 
 
 def get_session_manager() -> SessionManager:
@@ -49,150 +46,158 @@ def get_agent() -> Optional[InteractivePwnAgent]:
 
 def render_sidebar():
     st.sidebar.title("🎯 Pwn Agent")
-    st.sidebar.markdown("---")
     
-    st.sidebar.subheader("📁 新建会话")
-    
-    with st.sidebar.form("new_session_form"):
-        binary_path = st.text_input(
-            "Binary 路径",
-            placeholder="/path/to/binary",
-            help="目标二进制文件的绝对路径"
-        )
-        
-        poc_md_path = st.text_input(
-            "Poc.md 路径 (可选)",
-            placeholder="/path/to/poc.md",
-            help="漏洞描述文档路径"
-        )
-        
-        submitted = st.form_submit_button("🚀 创建会话", use_container_width=True)
-        
-        if submitted:
-            if not binary_path.strip():
-                st.sidebar.error("请输入 Binary 路径")
-            elif not Path(binary_path).exists():
-                st.sidebar.error("Binary 文件不存在")
-            else:
-                poc_path = Path(poc_md_path) if poc_md_path.strip() else None
-                if poc_path and not poc_path.exists():
-                    st.sidebar.error("Poc.md 文件不存在")
+    with st.sidebar.expander("📁 新建会话", expanded=True):
+        with st.form("new_session_form"):
+            binary_path = st.text_input(
+                "Binary 路径",
+                placeholder="/path/to/binary",
+                help="目标二进制文件的绝对路径"
+            )
+            
+            poc_md_path = st.text_input(
+                "Poc.md 路径 (可选)",
+                placeholder="/path/to/poc.md",
+                help="漏洞描述文档路径"
+            )
+            
+            submitted = st.form_submit_button("🚀 创建会话", use_container_width=True)
+            
+            if submitted:
+                if not binary_path.strip():
+                    st.error("请输入 Binary 路径")
+                elif not Path(binary_path).exists():
+                    st.error("Binary 文件不存在")
                 else:
-                    session = get_session_manager().create_session(
-                        project_root=_project_root(),
-                        binary_path=Path(binary_path),
-                        poc_md_path=poc_path,
-                    )
-                    st.session_state.current_session = session
-                    st.session_state.agent = InteractivePwnAgent(
-                        session, 
-                        get_session_manager()
-                    )
-                    st.session_state.step_results = []
-                    st.rerun()
+                    poc_path = Path(poc_md_path) if poc_md_path.strip() else None
+                    if poc_path and not poc_path.exists():
+                        st.error("Poc.md 文件不存在")
+                    else:
+                        session = get_session_manager().create_session(
+                            project_root=_project_root(),
+                            binary_path=Path(binary_path),
+                            poc_md_path=poc_path,
+                        )
+                        st.session_state.current_session = session
+                        st.session_state.agent = InteractivePwnAgent(
+                            session, 
+                            get_session_manager()
+                        )
+                        st.rerun()
     
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("📜 历史会话")
+    st.sidebar.divider()
     
-    sessions = get_session_manager().list_sessions(limit=20)
-    
-    for session in sessions:
-        col1, col2 = st.sidebar.columns([3, 1])
+    with st.sidebar.expander("📜 历史会话", expanded=True):
+        sessions = get_session_manager().list_sessions(limit=20)
         
-        phase_emoji = {
-            AgentPhase.IDLE.value: "⚪",
-            AgentPhase.PLAN.value: "🔵",
-            AgentPhase.PWN.value: "🟡",
-            AgentPhase.FINISHED.value: "🟢",
-        }.get(session.phase, "⚪")
-        
-        with col1:
-            if st.button(
-                f"{phase_emoji} {session.session_id}",
-                key=f"session_{session.session_id}",
-                use_container_width=True,
-            ):
-                st.session_state.current_session = session
-                st.session_state.agent = InteractivePwnAgent(
-                    session,
-                    get_session_manager()
-                )
-                st.session_state.step_results = session.step_results.copy() if session.step_results else []
-                st.rerun()
-        
-        with col2:
-            if st.button("🗑️", key=f"delete_{session.session_id}"):
-                get_session_manager().delete_session(session.session_id)
-                if (st.session_state.current_session and 
-                    st.session_state.current_session.session_id == session.session_id):
-                    st.session_state.current_session = None
-                    st.session_state.agent = None
-                st.rerun()
-        
-        st.sidebar.caption(f"Binary: {Path(session.binary_path)}")
+        if not sessions:
+            st.info("暂无历史会话")
+        else:
+            for session in sessions:
+                phase_emoji = {
+                    AgentPhase.IDLE.value: "⚪",
+                    AgentPhase.PLAN.value: "🔵",
+                    AgentPhase.PWN.value: "🟡",
+                    AgentPhase.FINISHED.value: "🟢",
+                }.get(session.phase, "⚪")
+                
+                is_current = (st.session_state.current_session and 
+                             st.session_state.current_session.session_id == session.session_id)
+                
+                col1, col2 = st.columns([4, 1])
+                
+                with col1:
+                    btn_type = "primary" if is_current else "secondary"
+                    if st.button(
+                        f"{phase_emoji} {session.session_id[:8]}...",
+                        key=f"session_{session.session_id}",
+                        use_container_width=True,
+                        type=btn_type,
+                    ):
+                        st.session_state.current_session = session
+                        st.session_state.agent = InteractivePwnAgent(
+                            session,
+                            get_session_manager()
+                        )
+                        st.rerun()
+                
+                with col2:
+                    if st.button("🗑️", key=f"delete_{session.session_id}", help="删除会话"):
+                        get_session_manager().delete_session(session.session_id)
+                        if is_current:
+                            st.session_state.current_session = None
+                            st.session_state.agent = None
+                        st.rerun()
+                
+                st.caption(f"Binary: {Path(session.binary_path).name}")
 
 
-def render_chat_message(role: str, content: str):
-    with st.chat_message(role):
-        st.markdown(content)
+def render_user_message(msg: dict):
+    content = msg.get("content", "")
+    if content:
+        expanded = len(content) < 1000
+        with st.expander("👤 用户消息", expanded=expanded):
+            st.markdown(content)
 
 
-def render_step_result(result_data):
-    if isinstance(result_data, dict):
-        result = StepResult.from_dict(result_data)
-    else:
-        result = result_data
+def render_assistant_message(msg: dict):
+    content = msg.get("content", "")
+    if content:
+        expanded = len(content) < 1000
+        with st.expander("🤖 助手消息", expanded=expanded):
+            st.markdown(content)
+
+
+def render_tool_message(msg: dict):
+    content = msg.get("content", "")
     
-    if result.step_type == "think":
-        with st.expander("💭 思考过程", expanded=False):
-            st.markdown(result.content)
+    try:
+        data = json.loads(content)
+        tool_name = data.get("name", "Unknown")
+        args = data.get("args", {})
+        returncode = data.get("returncode", -1)
+        stdout = data.get("stdout", "")
+        stderr = data.get("stderr", "")
+    except (json.JSONDecodeError, TypeError):
+        tool_name = "Unknown"
+        args = {}
+        returncode = -1
+        stdout = content
+        stderr = ""
     
-    elif result.step_type == "tool_call":
-        st.info(f"🔧 调用工具: **{result.tool_name}**")
-        if result.tool_args:
-            with st.expander("参数", expanded=False):
-                st.json(result.tool_args)
+    is_success = returncode == 0
+    status_icon = "✅" if is_success else "❌"
     
-    elif result.step_type == "tool_result":
-        result_dict = result.tool_result if isinstance(result.tool_result, dict) else vars(result.tool_result)
-        returncode = result_dict.get("returncode", -1)
-        success = returncode == 0
+    with st.container(border=True):
+        st.markdown(f"**🔧 {tool_name}** {status_icon}")
         
-        icon = "✅" if success else "❌"
-        with st.expander(
-            f"{icon} 工具结果: {result.tool_name} (exit: {returncode})",
-            expanded=not success
-        ):
-            stdout = result_dict.get("stdout", "")
-            if stdout:
-                st.subheader("stdout")
+        if args:
+            with st.expander("📋 参数", expanded=False):
+                st.json(args)
+        
+        if stdout.strip():
+            with st.expander("📤 stdout", expanded=False):
                 st.code(stdout, language="text")
-            stderr = result_dict.get("stderr", "")
-            if stderr:
-                st.subheader("stderr")
+        
+        if stderr.strip():
+            with st.expander("📥 stderr", expanded=False):
                 st.code(stderr, language="text")
+
+
+def render_chat_message(msg: dict):
+    role = msg.get("role", "unknown")
     
-    elif result.step_type == "plan_complete":
-        st.success("✅ Plan 生成完成!")
-        with st.expander("📄 Plan.md", expanded=True):
-            st.markdown(result.content)
-    
-    elif result.step_type == "report_complete":
-        st.success("✅ Report 生成完成!")
-        with st.expander("📄 Report.md", expanded=True):
-            st.markdown(result.content)
-    
-    elif result.step_type == "phase_change":
-        st.info(f"🔄 {result.content}")
-    
-    elif result.step_type == "finished":
-        st.success("🎉 " + result.content)
-    
-    elif result.step_type == "error":
-        st.error(f"❌ 错误: {result.error}")
-    
-    elif result.step_type == "message":
-        st.markdown(result.content)
+    if role == "system":
+        return
+    elif role == "user":
+        with st.chat_message("user"):
+            render_user_message(msg)
+    elif role == "assistant":
+        with st.chat_message("assistant"):
+            render_assistant_message(msg)
+    elif role == "tool":
+        with st.chat_message("assistant"):
+            render_tool_message(msg)
 
 
 def render_chat_interface():
@@ -202,9 +207,6 @@ def render_chat_interface():
     if not session or not agent:
         st.info("👈 请在左侧创建或选择一个会话")
         return
-    
-    if not st.session_state.step_results and session.step_results:
-        st.session_state.step_results = session.step_results.copy()
     
     col1, col2, col3 = st.columns([2, 2, 1])
     phase_display = {
@@ -222,10 +224,9 @@ def render_chat_interface():
         if st.button("🔄 重置", use_container_width=True):
             agent.reset_phase()
             st.session_state.processing = False
-            st.session_state.step_results = []
             st.rerun()
     
-    st.markdown("---")
+    st.divider()
     
     col_info1, col_info2 = st.columns([3, 1])
     with col_info1:
@@ -248,17 +249,15 @@ def render_chat_interface():
     with col_phase1:
         if st.button("🔵 切换到 Plan", use_container_width=True, disabled=(session.phase == AgentPhase.PLAN.value)):
             agent.switch_phase(AgentPhase.PLAN.value)
-            st.session_state.step_results = []
             st.session_state.processing = False
             st.rerun()
     with col_phase2:
         if st.button("🟡 切换到 Pwn", use_container_width=True, disabled=(session.phase == AgentPhase.PWN.value)):
             agent.switch_phase(AgentPhase.PWN.value)
-            st.session_state.step_results = []
             st.session_state.processing = False
             st.rerun()
     
-    st.markdown("---")
+    st.divider()
     
     st.subheader("💬 对话")
     
@@ -266,56 +265,29 @@ def render_chat_interface():
     
     with chat_container:
         for msg in session.messages:
-            role = msg.get("role", "unknown")
-            content = msg.get("content", "")
-            
-            if role == "system":
-                continue
-            elif role == "user":
-                with st.chat_message("user"):
-                    st.markdown(content)
-            elif role == "assistant":
-                with st.chat_message("assistant"):
-                    st.markdown(content)
-            elif role == "tool":
-                continue
-        
-        for result in st.session_state.step_results:
-            render_step_result(result)
+            render_chat_message(msg)
     
     if st.session_state.processing:
         st.warning("⏳ Agent 正在处理... 如果已停止，请点击上方的「🔄 重置状态」按钮")
     
-    st.markdown("---")
+    st.divider()
     
     if session.phase != AgentPhase.FINISHED.value:
         user_input = st.chat_input("输入消息...")
         
         if user_input and not st.session_state.processing:
             st.session_state.processing = True
-            st.session_state.step_results = []
             
             with st.chat_message("user"):
                 st.markdown(user_input)
             
             with st.chat_message("assistant"):
-                progress_bar = st.progress(0, text="处理中...")
+                with st.spinner("处理中..."):
+                    try:
+                        agent.process_user_message(user_input, max_steps=st.session_state.max_steps)
+                    except Exception as e:
+                        st.error(f"处理失败: {e}")
                 
-                step_results = []
-                try:
-                    for i, result in enumerate(agent.process_user_message(user_input, max_steps=st.session_state.max_steps)):
-                        step_results.append(result)
-                        render_step_result(result)
-                        progress_bar.progress(
-                            min(100, (i + 1) * 10),
-                            text=f"步骤 {i + 1}: {result.step_type}"
-                        )
-                except Exception as e:
-                    st.error(f"处理失败: {e}")
-                finally:
-                    progress_bar.empty()
-                
-                st.session_state.step_results = step_results
                 st.session_state.current_session = get_session_manager().load_session(
                     session.session_id
                 )
@@ -332,34 +304,36 @@ def render_files_panel():
     if not session:
         return
     
-    st.sidebar.markdown("---")
-    st.sidebar.subheader("📂 文件")
+    st.sidebar.divider()
     
-    run_dir = get_session_manager().get_run_dir(session.session_id)
-    
-    plan_md = run_dir / "plan.md"
-    if plan_md.exists():
-        with st.sidebar.expander("📄 plan.md"):
-            st.markdown(plan_md.read_text(encoding="utf-8"))
-    
-    exp_py = run_dir / "exp.py"
-    if exp_py.exists():
-        with st.sidebar.expander("🐍 exp.py"):
-            st.code(exp_py.read_text(encoding="utf-8"), language="python")
-    
-    report_md = run_dir / "report.md"
-    if report_md.exists():
-        with st.sidebar.expander("📄 report.md"):
-            st.markdown(report_md.read_text(encoding="utf-8"))
-    
-    messages_json = run_dir / "messages.json"
-    if messages_json.exists():
-        with st.sidebar.expander("📋 messages.json"):
-            try:
-                data = json.loads(messages_json.read_text(encoding="utf-8"))
-                st.json(data)
-            except Exception:
-                st.code(messages_json.read_text(encoding="utf-8"))
+    with st.sidebar.container():
+        st.markdown("**📂 文件**")
+        
+        run_dir = get_session_manager().get_run_dir(session.session_id)
+        
+        plan_md = run_dir / "plan.md"
+        if plan_md.exists():
+            with st.sidebar.expander("📄 plan.md"):
+                st.markdown(plan_md.read_text(encoding="utf-8"))
+        
+        exp_py = run_dir / "exp.py"
+        if exp_py.exists():
+            with st.sidebar.expander("🐍 exp.py"):
+                st.code(exp_py.read_text(encoding="utf-8"), language="python")
+        
+        report_md = run_dir / "report.md"
+        if report_md.exists():
+            with st.sidebar.expander("📄 report.md"):
+                st.markdown(report_md.read_text(encoding="utf-8"))
+        
+        messages_json = run_dir / "messages.json"
+        if messages_json.exists():
+            with st.sidebar.expander("📋 messages.json"):
+                try:
+                    data = json.loads(messages_json.read_text(encoding="utf-8"))
+                    st.json(data)
+                except Exception:
+                    st.code(messages_json.read_text(encoding="utf-8"))
 
 
 def main():
@@ -371,7 +345,6 @@ def main():
     )
     
     st.title("🎯 LLM-driven Pwn Agent")
-    st.markdown("基于 LLM 的多轮对话式 Pwn 漏洞利用生成工具")
     
     init_session_state()
     

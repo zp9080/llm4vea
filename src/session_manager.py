@@ -29,7 +29,6 @@ class SessionState:
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
     
     messages: List[Dict[str, Any]] = field(default_factory=list)
-    tool_history: List[Dict[str, Any]] = field(default_factory=list)
     step_results: List[Dict[str, Any]] = field(default_factory=list)
     
     plan_content: Optional[str] = None
@@ -42,7 +41,13 @@ class SessionState:
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "SessionState":
-        return cls(**data)
+        valid_fields = {
+            "session_id", "project_root", "binary_path", "poc_md_path",
+            "plan_md_path", "exp_path", "phase", "created_at", "updated_at",
+            "messages", "step_results", "plan_content", "report_content", "error",
+        }
+        filtered_data = {k: v for k, v in data.items() if k in valid_fields}
+        return cls(**filtered_data)
 
     def update_timestamp(self) -> None:
         self.updated_at = datetime.now().isoformat()

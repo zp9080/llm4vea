@@ -14,3 +14,7 @@ docker run -it --rm pwn-u22 /bin/bash
 # Streamlit
 streamlit run src/web_ui.py --server.headless true  --server.port 8502
 
+
+# Patchelf
+patchelf --replace-needed libc.so.6 /root/llm4vea/inputs/benchmarks/heap/vuln1/libc.so.6 /root/llm4vea/inputs/benchmarks/heap/vuln1/pwn
+patchelf --set-interpreter /root/llm4vea/inputs/benchmarks/heap/vuln1/ld-linux-x86-64.so.2 /root/llm4vea/inputs/benchmarks/heap/vuln1/pwn
