@@ -50,11 +50,11 @@ vuln 类型的 skill 由 **knowledge** 与 **templates** 两部分组成：knowl
   - 生成：基于模板编写 `exp.py`
   - 运行：调用 `exp-runner` 执行 `exp.py`，并利用超时机制避免卡死
   - 调试：根据 `exp-runner` 反馈，在 `exp.py` 中联动 `pwndbg`（结合 pwntools 的 `gdb.attach`）
-  - 输出：`report.md` 与 `debug.md`
+  - 输出：`report.md`
 - `EvaluateAgent`：
   - 独立脚本运行，不参与主流程
-  - 输入：`plan.md`、`debug.md` 与 benchmarks 的 `exp.md`
-  - 输出：对 PwnAgent 执行质量的评估与打分
+  - 输入：`plan.md`、`report.md` 与 benchmarks 的 `exp.md`
+  - 输出：对 PlanAgent和PwnAgent 执行质量的评估与打分
 
 ### 执行开关
 - PlanAgent 与 PwnAgent 支持独立开关，便于只运行单个阶段
@@ -64,5 +64,3 @@ vuln 类型的 skill 由 **knowledge** 与 **templates** 两部分组成：knowl
 运行产物保存在 `runs/{timestamp}/`（timestamp用YY-MM-DD-HH-MM-SS格式），包括：
 - plan.md: 任务计划与中间决策
 - report.md: PwnAgent 生成的报告与 EXP
-- debug.md: 调试记录，包括 GDB 命令与输出
-- messages.json: PlanAgent 与 PwnAgent 的交互记录，便于人工 review
