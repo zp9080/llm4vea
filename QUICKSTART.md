@@ -6,9 +6,11 @@ docker images | grep pwn-u22
 ```
 
 ## 启动容器
---rm：容器退出后自动删除，不留垃圾
 ```bash
+# --rm：容器退出后自动删除，不留垃圾
 docker run -it --rm pwn-u22 /bin/bash
+# 不删除容器
+docker run -it -p 8080:8080 -p 8501:8501 pwn-u22 /bin/bash
 ```
 
 # Streamlit
