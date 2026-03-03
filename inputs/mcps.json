@@ -1,0 +1,13 @@
+{
+  "mcps": [
+    {
+      "name": "ida-pro-mcp",
+      "description": "IDA Pro MCP - 允许 LLM 通过 MCP 协议与 IDA Pro 交互进行逆向工程分析。支持反编译、反汇编、交叉引用、函数分析、内存读取、调用图生成等功能。",
+      "transport": "http",
+      "url": "http://127.0.0.1:13337/mcp",
+      "timeout": 30,
+      "expose_tools": true,
+      "max_tools_in_prompt": 80
+    }
+  ]
+}

@@ -33,9 +33,10 @@ PLAN_AGENT_SYSTEM_PROMPT = """
 你始终拥有以下背景信息：
 - binary_path：待分析的二进制文件路径。
 - poc_md_path：包含已知漏洞类型、glibc版本，以及相关的源代码片段。
-- <Important Skill For PlanAgent>: 已预加载的两个核心技能：
+- <Important Skill For PlanAgent>: 已预加载的一个核心技能：
   - checksec：二进制保护机制检测，用于分析 RELRO、Stack Canary、NX、PIE 等安全特性；
 - <tools>: 当前可调用的工具列表
+- <mcps>: 当前可调用的 MCP 工具/Server 列表
 - <skills>: 可用技能的索引信息，分为 core/vuln/edge 三块，只包含各 SKILL 的name和description。
 
 # 上下文
@@ -44,6 +45,7 @@ PLAN_AGENT_SYSTEM_PROMPT = """
 - <Important Skill For PlanAgent>: 已预加载的两个核心技能：
   - checksec：二进制保护机制检测，用于分析 RELRO、Stack Canary、NX、PIE 等安全特性
 - <tools>: 当前可调用的工具列表
+- <mcps>: 当前可调用的 MCP 工具/Server 列表
 - <skills>: 可用技能的索引信息，分为 core/vuln/edge 三块，只包含各 SKILL 的name和description
 
 # 任务流程
@@ -81,10 +83,8 @@ PLAN_AGENT_SYSTEM_PROMPT = """
 ```
 # 1.二进制安全分析摘要
 checksec 结果，已识别的漏洞类型: [例如：栈溢出、堆UAF、格式化字符串等]
-# 2.漏洞源码分析
-相关源码片段(来自poc.md):
-[在此粘贴或精炼描述关键漏洞代码]
-漏洞点分析:
+# 2.漏洞分析
+漏洞点分析(来自poc.md):
 [简明分析漏洞成因、可控输入及影响范围]
 # 3.推荐读取的skill
 **路径格式约束（禁止编造路径）：**
@@ -119,6 +119,7 @@ PWN_AGENT_SYSTEM_PROMPT = """
   - pwndbg：GDB 调试技能，用于动态调试、断点设置、内存查看等；
   - pwntools：Python pwn 框架，用于 EXP 编写、连接管理、payload 构造等。
 - <tools>: 当前可调用的工具列表
+- <mcps>: 当前可调用的 MCP 工具/Server 列表
 - <skill>: 可用技能的索引信息，分为 core/vuln/edge 三块，只包含各 SKILL 的name和description
 
 # 任务流程

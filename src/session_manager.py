@@ -23,17 +23,16 @@ class SessionState:
     poc_md_path: Optional[str] = None
     plan_md_path: Optional[str] = None
     exp_path: Optional[str] = None
-    
+
     phase: str = AgentPhase.IDLE.value
     created_at: str = field(default_factory=lambda: datetime.now().isoformat())
     updated_at: str = field(default_factory=lambda: datetime.now().isoformat())
-    
+
     messages: List[Dict[str, Any]] = field(default_factory=list)
-    step_results: List[Dict[str, Any]] = field(default_factory=list)
-    
+
     plan_content: Optional[str] = None
     report_content: Optional[str] = None
-    
+
     error: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
@@ -59,23 +58,23 @@ class SessionManager:
         self.sessions_dir.mkdir(parents=True, exist_ok=True)
 
     def create_session(
-        self,
-        project_root: Path,
-        binary_path: Path,
-        poc_md_path: Optional[Path] = None,
+            self,
+            project_root: Path,
+            binary_path: Path,
+            poc_md_path: Optional[Path] = None,
     ) -> SessionState:
         session_id = datetime.now().strftime("%y-%m-%d-%H-%M-%S")
-        
+
         session = SessionState(
             session_id=session_id,
             project_root=str(project_root),
             binary_path=str(binary_path),
             poc_md_path=str(poc_md_path) if poc_md_path else None,
         )
-        
+
         run_dir = self._get_run_dir(session_id)
         run_dir.mkdir(parents=True, exist_ok=True)
-        
+
         self.save_session(session)
         return session
 
@@ -83,7 +82,7 @@ class SessionManager:
         session_file = self._get_session_file(session_id)
         if not session_file.exists():
             return None
-        
+
         try:
             data = json.loads(session_file.read_text(encoding="utf-8"))
             return SessionState.from_dict(data)
@@ -98,34 +97,44 @@ class SessionManager:
             encoding="utf-8"
         )
 
+        # Convenience output for UI/debugging: OpenAI-format messages list.
+        messages_file = self._get_run_dir(session.session_id) / "messages.json"
+        try:
+            messages_file.write_text(
+                json.dumps(session.messages, indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except Exception:
+            pass
+
     def list_sessions(self, limit: int = 50) -> List[SessionState]:
         sessions: List[SessionState] = []
-        
+
         for session_dir in sorted(
-            self.sessions_dir.iterdir(), 
-            key=lambda x: x.stat().st_mtime,
-            reverse=True
+                self.sessions_dir.iterdir(),
+                key=lambda x: x.stat().st_mtime,
+                reverse=True
         ):
             if not session_dir.is_dir():
                 continue
-            
+
             session_file = session_dir / "session.json"
             if not session_file.exists():
                 continue
-            
+
             session = self.load_session(session_dir.name)
             if session:
                 sessions.append(session)
                 if len(sessions) >= limit:
                     break
-        
+
         return sessions
 
     def delete_session(self, session_id: str) -> bool:
         run_dir = self._get_run_dir(session_id)
         if not run_dir.exists():
             return False
-        
+
         import shutil
         shutil.rmtree(run_dir)
         return True

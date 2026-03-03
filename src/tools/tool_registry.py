@@ -290,6 +290,9 @@ class ToolRegistry:
 
         return list(self._schemas_by_name.values())
 
+    def has_tool(self, name: str) -> bool:
+        return name in self._tools
+
     def run(self, name: str, **kwargs: Any) -> ToolResult:
         fn = self._tools.get(name)
         if fn is None:
