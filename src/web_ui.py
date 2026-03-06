@@ -61,6 +61,12 @@ def render_sidebar():
                 help="漏洞描述文档路径"
             )
 
+            plan_md_path = st.text_input(
+                "Plan.md 路径 (可选)",
+                placeholder="/path/to/plan.md",
+                help="计划文档路径，用于 Pwn 阶段"
+            )
+
             submitted = st.form_submit_button("🚀 创建会话", use_container_width=True)
 
             if submitted:
@@ -70,13 +76,18 @@ def render_sidebar():
                     st.error("Binary 文件不存在")
                 else:
                     poc_path = Path(poc_md_path) if poc_md_path.strip() else None
+                    plan_path = Path(plan_md_path) if plan_md_path.strip() else None
+
                     if poc_path and not poc_path.exists():
                         st.error("Poc.md 文件不存在")
+                    elif plan_path and not plan_path.exists():
+                        st.error("Plan.md 文件不存在")
                     else:
                         session = get_session_manager().create_session(
                             project_root=_project_root(),
                             binary_path=Path(binary_path),
                             poc_md_path=poc_path,
+                            plan_md_path=plan_path,
                         )
                         st.session_state.current_session = session
                         st.session_state.agent = InteractivePwnAgent(
@@ -250,6 +261,8 @@ def render_chat_interface():
         st.markdown(f"**Binary:** `{Path(session.binary_path)}`")
         if session.poc_md_path:
             st.markdown(f"**Poc.md:** `{Path(session.poc_md_path)}`")
+        if session.plan_md_path:
+            st.markdown(f"**Plan.md:** `{Path(session.plan_md_path)}`")
 
     with col_info2:
         if "max_steps" not in st.session_state:
@@ -342,15 +355,6 @@ def render_files_panel():
         if report_md.exists():
             with st.sidebar.expander("📄 report.md"):
                 st.markdown(report_md.read_text(encoding="utf-8"))
-
-        messages_json = run_dir / "messages.json"
-        if messages_json.exists():
-            with st.sidebar.expander("📋 messages.json"):
-                try:
-                    data = json.loads(messages_json.read_text(encoding="utf-8"))
-                    st.json(data)
-                except Exception:
-                    st.code(messages_json.read_text(encoding="utf-8"))
 
 
 def main():

@@ -62,6 +62,7 @@ class SessionManager:
             project_root: Path,
             binary_path: Path,
             poc_md_path: Optional[Path] = None,
+            plan_md_path: Optional[Path] = None,
     ) -> SessionState:
         session_id = datetime.now().strftime("%y-%m-%d-%H-%M-%S")
 
@@ -70,6 +71,7 @@ class SessionManager:
             project_root=str(project_root),
             binary_path=str(binary_path),
             poc_md_path=str(poc_md_path) if poc_md_path else None,
+            plan_md_path=str(plan_md_path) if plan_md_path else None,
         )
 
         run_dir = self._get_run_dir(session_id)
@@ -96,16 +98,6 @@ class SessionManager:
             json.dumps(session.to_dict(), indent=2, ensure_ascii=False),
             encoding="utf-8"
         )
-
-        # Convenience output for UI/debugging: OpenAI-format messages list.
-        messages_file = self._get_run_dir(session.session_id) / "messages.json"
-        try:
-            messages_file.write_text(
-                json.dumps(session.messages, indent=2, ensure_ascii=False),
-                encoding="utf-8",
-            )
-        except Exception:
-            pass
 
     def list_sessions(self, limit: int = 50) -> List[SessionState]:
         sessions: List[SessionState] = []

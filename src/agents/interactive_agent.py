@@ -47,7 +47,13 @@ class InteractivePwnAgent:
             self.plan_md = Path(self.session.plan_md_path)
 
         self.plan_content = self.session.plan_content
+        if not self.plan_content and self.plan_md.exists():
+            self.plan_content = self.plan_md.read_text(encoding="utf-8")
+            self.session.plan_content = self.plan_content
+
         self.report_content = self.session.report_content
+
+        self._working_messages: List[Dict[str, Any]] = []
 
     def _build_system_prompt(self, phase: str) -> str:
         if phase == AgentPhase.PLAN.value:
@@ -113,9 +119,7 @@ class InteractivePwnAgent:
 
         system_prompt = self._build_system_prompt(current_phase)
 
-        messages = list(self.session.messages)
-
-        has_system_prompt = any(msg.get("role") == "system" for msg in messages)
+        messages = list(self._working_messages)
 
         if not messages:
             user_context = self._build_user_context(user_input, current_phase)
@@ -123,13 +127,12 @@ class InteractivePwnAgent:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_context},
             ]
-        elif not has_system_prompt:
-            messages.insert(0, {"role": "system", "content": system_prompt})
-            if user_input.strip():
-                messages.append({"role": "user", "content": user_input})
         else:
             if user_input.strip():
                 messages.append({"role": "user", "content": user_input})
+
+        if user_input.strip():
+            self.session.messages.append({"role": "user", "content": user_input})
 
         step_count = 0
 
@@ -146,6 +149,13 @@ class InteractivePwnAgent:
                 return
 
             messages.append(resp)
+            self._working_messages = list(messages)
+
+            if resp.get("content"):
+                self.session.messages.append({
+                    "role": "assistant",
+                    "content": resp.get("content", ""),
+                })
 
             tool_calls = resp.get("tool_calls", None)
             if isinstance(tool_calls, list) and tool_calls:
@@ -194,13 +204,15 @@ class InteractivePwnAgent:
                         "metadata": meta,
                     }
 
-                    messages.append({
+                    tool_msg = {
                         "role": "tool",
                         "tool_call_id": call_id,
                         "content": json.dumps(tool_result_data, ensure_ascii=False),
-                    })
+                    }
+                    messages.append(tool_msg)
+                    self.session.messages.append(tool_msg)
 
-                self.session.messages = messages
+                self._working_messages = list(messages)
                 self.session_manager.save_session(self.session)
                 continue
 
@@ -210,8 +222,7 @@ class InteractivePwnAgent:
                 data = json.loads(raw) if raw.strip() else {}
             except Exception:
                 if raw.strip():
-                    messages.append({"role": "assistant", "content": raw})
-                    self.session.messages = messages
+                    self._working_messages = list(messages)
                     self.session_manager.save_session(self.session)
                 continue
 
@@ -231,6 +242,7 @@ class InteractivePwnAgent:
                     current_phase = AgentPhase.PWN.value
                     self.session_manager.save_session(self.session)
 
+                    self._working_messages = []
                     system_prompt = self._build_system_prompt(current_phase)
                     messages = [
                         {"role": "system", "content": system_prompt},
@@ -249,20 +261,20 @@ class InteractivePwnAgent:
                     self.session_manager.save_session(self.session)
                     return
 
-            self.session.messages = messages
+            self._working_messages = list(messages)
             self.session_manager.save_session(self.session)
             break
 
     def switch_phase(self, phase: str) -> None:
         if phase not in {AgentPhase.PLAN.value, AgentPhase.PWN.value, AgentPhase.IDLE.value}:
             raise ValueError(f"Invalid phase: {phase}")
+
+        self._working_messages = []
         self.session.phase = phase
-        self.session.messages = [
-            msg for msg in self.session.messages if msg.get("role") != "system"
-        ]
         self.session_manager.save_session(self.session)
 
     def reset_phase(self, phase: str = AgentPhase.PLAN.value) -> None:
+        self._working_messages = []
         self.session.phase = phase
         self.session.messages = []
         self.session_manager.save_session(self.session)
