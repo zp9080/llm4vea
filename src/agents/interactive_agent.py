@@ -127,6 +127,7 @@ class InteractivePwnAgent:
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": user_context},
             ]
+            self.session.messages.append({"role": "system", "content": system_prompt})
         else:
             if user_input.strip():
                 messages.append({"role": "user", "content": user_input})
