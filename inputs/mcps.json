@@ -2,9 +2,9 @@
   "mcps": [
     {
       "name": "ida-pro-mcp",
-      "description": "IDA Pro MCP - 允许 LLM 通过 MCP 协议与 IDA Pro 交互进行逆向工程分析。支持反编译、反汇编、交叉引用、函数分析、内存读取、调用图生成等功能。",
+      "description": "IDA Pro MCP - 通过 MCP 协议与 IDA Pro 交互进行二进制静态分析。可用工具：list_user_funcs（列出用户函数）、view_func（查看函数反编译与汇编）。用于理解函数逻辑、定位关键代码、确认偏移量等。",
       "transport": "http",
-      "url": "http://127.0.0.1:13337/mcp",
+      "url": "http://host.docker.internal:13337/mcp",
       "timeout": 30,
       "expose_tools": true,
       "max_tools_in_prompt": 80

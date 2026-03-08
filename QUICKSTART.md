@@ -9,8 +9,11 @@ docker images | grep pwn-u22
 ```bash
 # --rm：容器退出后自动删除，不留垃圾
 docker run -it --rm pwn-u22 /bin/bash
-# 不删除容器
-docker run -it -p 8080:8080 -p 8501:8501 pwn-u22 /bin/bash
+# 不删除容器,允许容器访问宿主服务，添加端口映射
+docker run -it --add-host host.docker.internal:host-gateway -p 8080:8080 -p 8501:8501 pwn-u22 /bin/bash
+
+docker exec -it container_id /bin/bash
+
 ```
 
 # Streamlit
