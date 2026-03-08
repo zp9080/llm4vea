@@ -269,8 +269,8 @@ def render_chat_interface():
             st.session_state.max_steps = 15
         max_steps = st.selectbox(
             "最大轮次",
-            options=[10, 15, 20, 25, 30],
-            index=[10, 15, 20, 25, 30].index(st.session_state.max_steps),
+            options=[5, 10, 15, 20, 25, 30],
+            index=[5, 10, 15, 20, 25, 30].index(st.session_state.max_steps),
             key="max_steps_select",
         )
         st.session_state.max_steps = max_steps
