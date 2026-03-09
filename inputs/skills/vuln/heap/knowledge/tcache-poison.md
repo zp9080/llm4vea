@@ -32,7 +32,7 @@
 # 调试线索与判定方法
 
 - **GDB/pwndbg 调试**:
-  - **`tcache` 命令**: 这是调试 tcache 投毒的核心命令。在 `free`、`edit` 和 `malloc` 的每一步之后，都应使用 `tcache` 检查链表状态是否符合预期。
+  - **`tcache` 命令**: 用于检查 tcache 链表状态。通常在攻击链完成、准备进行任意地址写时检查一次即可，确认链表指针指向目标地址。
   - **`x/gx <chunk_addr>`**: 精确检查被 `free` 的 chunk 的 `fd` 指针是否被成功覆盖。
   - **`malloc` 返回值**: 在 `malloc` 调用后，检查其返回值。第二次 `malloc` 的返回值应等于 `target_addr`。
   - **`watch <target_addr>`**: 对目标地址（如 `__free_hook`）设置观察点，当其被写入时 GDB 会暂停，可以确认写入时机和内容。
@@ -48,4 +48,3 @@
 - **Tcache Bin 已满**: 每个 tcache bin 默认最多存放 7 个 chunks。如果 bin 已满，`free` 会将 chunk 放入 unsorted bin，导致投毒失败。
 - **错误的 Target Address**: 如果目标地址是只读的，写入会失败。如果地址无效，程序会崩溃。
 - **Safe-Linking 计算错误**: 在 glibc >= 2.32 中，如果泄露的堆地址不准，或加密 `fd` 的计算有误，`malloc` 在解密时会发现 `(decrypted_fd >> 12) != P`，导致 `abort`。
-- **Double Free**: 在 tcache 中，连续 `free` 同一个 chunk 两次（在 glibc 2.26 中）或 `free(A); free(B); free(A)`（在更高版本中）可以形成循环链表，这也是一种实现任意地址分配的强大原语，有时比 UAF 更直接。

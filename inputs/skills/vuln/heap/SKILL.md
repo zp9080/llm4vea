@@ -23,4 +23,4 @@ description: "提供针对 glibc 堆漏洞的核心利用技术与 EXP 模板。
 ## templates
 
 - [house-of-apple2漏洞利用EXP模板](./templates/house-of-apple2-exp.md)
-- [tcache-poisoni漏洞利用EXP模板](templates/tcache-poison-exp.md)
+- [tcache-poison漏洞利用EXP模板](templates/tcache-poison-exp.md)

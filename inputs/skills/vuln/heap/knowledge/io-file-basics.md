@@ -50,8 +50,6 @@
   - 在 `_IO_flush_all_lockp` 内部循环的 `_IO_OVERFLOW` 宏调用处或 `__malloc_assert` 的 `__fxprintf` 调用处下断点。
   - 单步执行 (`si`)，观察程序如何通过 `_IO_JUMPS_FUNC` 宏找到 vtable 地址，以及最终 `call` 的目标是否是 `system`。
 
-- **使用 `IO_FILE` GDB 插件**:
-  - 一些 GDB 插件（如 `GEF` 的 `heap bins`）可以很好地展示 `FILE` 结构。社区也有专门的 `iofile` GDB 脚本，可以极大简化 `FILE` 结构的查看和分析。
 
 # 常见陷阱与收敛建议
 

