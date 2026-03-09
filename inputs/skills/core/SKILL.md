@@ -5,7 +5,6 @@ description: "Core pwn skill covering binary protections, ROP gadgets, and pwn b
 
 # 使用场景
 - 需要用 `checksec` 分析二进制保护机制并规划宏观利用路径
-- 需要依赖 ROP gadgets 进行代码重用攻击
 - 使用用 `pwntools` 生成 EXP 脚本d
 - 动态调试栈溢出、堆漏洞或格式化字符串漏洞，需借助 `pwndbg` 可视化内存、栈、堆和 bins 状态
 
