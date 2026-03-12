@@ -67,9 +67,11 @@ def dbg_init(breakpoint_cmd):
     """
     初始化 GDB 并启用 Python API
     返回 Gdb 对象，可用于程序化控制
+    注意: gdb.attach() 当 api=True 时返回 (PID, Gdb) 元组
     """
     global gdb_instance
-    gdb_instance = gdb.attach(p, gdbscript=breakpoint_cmd, api=True)
+    pid, gdb_obj = gdb.attach(p, gdbscript=breakpoint_cmd, api=True)
+    gdb_instance = gdb_obj
     return gdb_instance
 
 def dbg_exec(cmd):

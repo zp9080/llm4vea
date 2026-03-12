@@ -1,23 +1,21 @@
 # Docker
 ## 构建镜像
 ```bash
-docker build --platform linux/amd64 -t pwn-u22 .
-docker images | grep pwn-u22
+docker build --platform linux/amd64 -t pwn-final-u22 .
+docker images | grep pwn-final-u22
 ```
 
 ## 启动容器
 ```bash
-# --rm：容器退出后自动删除，不留垃圾
-docker run -it --rm pwn-u22 /bin/bash
-# 不删除容器,允许容器访问宿主服务，添加端口映射
-docker run -it --add-host host.docker.internal:host-gateway -p 8080:8080 -p 8501:8501 pwn-u22 /bin/bash
+# 允许容器访问宿主服务，允许宿主访问容器8080,8501端口的服务，允许macos的docker进行ptrace调试
+docker run -it --add-host host.docker.internal:host-gateway -p 8080:8080 -p 8501:8501 --cap-add=SYS_PTRACE --security-opt seccomp=unconfined pwn-final-u22 /bin/bash
 
 docker exec -it container_id /bin/bash
 
 ```
 
 # Streamlit
-streamlit run src/web_ui.py --server.headless true  --server.port 8502
+streamlit run src/web_ui.py --server.headless true  --server.port 8501
 
 
 # Patchelf
