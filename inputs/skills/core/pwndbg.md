@@ -21,38 +21,15 @@
   - `b *<address>`: 在关键地址（如函数返回、gadget）下断点。
   - `x/10gx <address>`: 以 8 字节为单位连续查看 10 个内存单元，常用于检查返回地址、堆块指针等关键数据。
 
-- **与 `pwntools` 联动**
-  - 在 `pwntools` 脚本中使用 `gdb.attach(proc, gdbscript='...')` 是标准工作流程。
-  - `gdbscript` 参数可以让你在 GDB 附加后自动执行一系列 `pwndbg` 命令，如设置断点、查看内存等，实现调试自动化。
-
 - **AI 自动化调试（GDB Python API）**
   - 使用 `gdb.attach(proc, gdbscript='...', api=True)` 启用 GDB Python API 访问。
-  - 返回的 `Gdb` 对象可以通过 RPyC 库远程调用 GDB 的 Python API，实现程序化控制。
+  - 返回的 `gdb_instance` 对象可以通过 RPyC 库远程调用 GDB 的 Python API，实现程序化控制。
   - 可以执行 GDB 命令、设置断点、读取寄存器和内存、控制程序执行流程。
-  - 使用 `gdb.continue_and_wait()` 同步执行 continue，或 `gdb.continue_nowait()` 异步执行。
+  - 使用 `dbg_continue()` 删除断点并异步继续执行程序，确保后续可以正常交互。
 
 # 使用示例
 
-## 示例 1: 传统人工调试方式
-使用pwntools中的gdb.debug，然后定义dbg函数，在需要调试的地方调用dbg函数，即可在完成pwndbg的调试。
-
-**注意**: 这种方式会启动一个新的 GDB UI 进程，只能通过人工交互进行调试，AI 无法使用此方式进行程序化调试。
-
-```python
-p = process("/path/to/binary")
-
-def dbg():
-    gdb.attach(p, 'b *0x401895')
-    pause()
-
-payload = b'b'.ljust(0x50, b'a')
-dbg()
-
-p.send(payload)
-p.interactive()
-```
-
-## 示例 2: AI 自动化调试方式（推荐）
+## AI 自动化调试方式
 使用 `api=True` 启用 GDB Python API，AI 可以程序化地控制调试流程，无需人工交互。
 
 ```python
@@ -65,13 +42,20 @@ gdb_instance = None
 
 def dbg_init(breakpoint_cmd):
     """
-    初始化 GDB 并启用 Python API
+    初始化 GDB 并启用 Python API（单例模式）
+    
+    首次调用：附加 GDB 到进程并设置断点
+    后续调用：在已附加的 GDB 中设置新断点
+    
     返回 Gdb 对象，可用于程序化控制
     注意: gdb.attach() 当 api=True 时返回 (PID, Gdb) 元组
     """
     global gdb_instance
-    pid, gdb_obj = gdb.attach(p, gdbscript=breakpoint_cmd, api=True)
-    gdb_instance = gdb_obj
+    if gdb_instance is None:
+        pid, gdb_obj = gdb.attach(p, gdbscript=breakpoint_cmd, api=True)
+        gdb_instance = gdb_obj
+    else:
+        gdb_instance.execute(breakpoint_cmd)
     return gdb_instance
 
 def dbg_exec(cmd):
@@ -85,11 +69,18 @@ def dbg_exec(cmd):
 
 def dbg_continue():
     """
-    继续执行程序（同步方式）
+    删除断点并继续执行程序（异步方式）
+    
+    此函数会：
+    1. 删除当前所有断点（避免后续执行时再次停止）
+    2. 异步继续执行程序（不等待程序停止）
+    
+    如果需要在其他程序状态打断点，应再次调用 dbg_init()
     """
     if gdb_instance is None:
         raise Exception("GDB not initialized. Call dbg_init() first.")
-    gdb_instance.continue_and_wait()
+    gdb_instance.execute('delete breakpoints')
+    gdb_instance.continue_nowait()
 
 # ... 程序交互函数定义 ...
 
@@ -108,19 +99,21 @@ add(0, 0x100, b'aaaa')
 add(1, 0x100, b'bbbb')
 delete(0)
 
-# 在关键位置初始化 GDB 并设置断点
-# 
+# 初始化 GDB 并设置断点
+#
 # 重要说明：
 # 1. 前面的 add/delete 操作已经发送了数据到程序，程序正在等待下一次输入
 # 2. 此时调用 dbg_init() 会附加 GDB 并设置断点
-# 3. 断点地址 'b *0x401839' 是程序后续会执行到的关键位置（如某个函数入口、漏洞触发点等）
-# 4. 当程序继续执行并运行到该地址时，会自动停在断点处
-# 5. 此时 AI 可以执行各种调试命令查看程序状态
+# 3. 当程序继续执行并运行到断点地址时，会自动停在断点处
+# 4. 此时 AI 可以执行各种调试命令查看程序状态
 #
-# 选择这个位置的原因：
-# - 程序已经执行了一些操作（如堆分配、释放），状态已经改变
-# - 程序还未执行到关键代码路径，可以在那里设置断点
-# - 断点位置是后续必然会执行到的代码地址
+# 断点设置原则：
+# 1. 只需设置一个断点即可，无需在多处设置断点
+# 2. 断点应设置在 menu 函数中（如打印菜单的函数入口），而非 add、delete 等功能函数
+# 3. 堆菜单题通常会循环调用 menu 函数，断在此处可以有序地观察每次操作后的堆状态
+# 4. 如果断在 add、delete 等函数内部，断点触发时机不够有序，难以获得完整的操作后状态
+#
+# 示例：假设 menu 函数入口地址为 0x401839
 dbg_init('b *0x401839')
 
 # AI 执行调试命令
@@ -137,6 +130,38 @@ dbg_continue()
 ```
 
 # 注意事项
-1. **同步与异步**: 使用 `continue_and_wait()` 进行同步执行（等待程序停下），使用 `continue_nowait()` 进行异步执行。
-2. **本地进程限制**: GDB Python API 目前仅支持本地进程调试。
-3. **断点时机**: `gdb.attach()` 附加后程序会暂停，需要在合适的时机调用 `continue_and_wait()` 让程序继续运行。
+1. **dbg_continue 行为**: 该函数会删除所有断点并异步继续执行程序，确保后续 pwntools 可以正常与程序交互。
+2. **多次调试**: 如果需要在不同的程序状态打断点，可以多次调用 `dbg_init()`。每次调用会重新附加 GDB 并设置新断点。
+3. **本地进程限制**: GDB Python API 目前仅支持本地进程调试。
+4. **断点时机**: `gdb.attach()` 附加后程序会暂停，调试完成后调用 `dbg_continue()` 让程序继续运行。
+
+# pwndbg命令详解
+
+## vmmap
+显示进程内存布局，定位程序基址、libc 基址、堆和栈地址。通过 `dbg_exec('vmmap')` 调用。
+
+**输出格式示例：**
+```
+LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA 
+             Start                End Perm     Size Offset File 
+          0x3fe000           0x400000 rw-p     2000      0 /path/to/pwn 
+        0x35dd1000         0x35df2000 rw-p    21000      0 [heap] 
+    0x7f7536849000     0x7f75369c1000 r-xp   178000  22000 /path/to/libc.so.6 
+    0x7f7536a13000     0x7f7536a15000 rw-p     2000 1eb000 /path/to/libc.so.6 
+    0x7fff9764a000     0x7fff9766b000 rw-p    21000      0 [stack] 
+```
+
+**地址定位：**
+- libc 基址：查找包含 `libc` 且权限为 `r-xp` 的行，Start 列即为基址
+- 堆地址：查找 `[heap]` 行，Start 列即为堆起始地址
+- 栈地址：查找 `[stack]` 行，Start 列即为栈起始地址
+
+**信息泄露配合：**
+```python
+# 【必须】使用 \x7f 方式接收泄露数据
+# libc 地址的高字节总是 0x7f，通过 recvuntil(b'\x7f') 可以精确定位
+# 其他接收方式（如固定长度接收）容易受到输出格式变化的影响，导致地址解析错误
+leaked_addr = u64(p.recvuntil(b'\x7f')[-6:].ljust(8, b'\x00'))
+offset = leaked_addr - libc_base_from_vmmap
+# 后续运行时: libc_base = leaked_addr - offset
+```

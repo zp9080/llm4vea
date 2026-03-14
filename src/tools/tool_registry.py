@@ -5,6 +5,8 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 import json
 import subprocess
+import os
+import signal
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -19,6 +21,13 @@ class ToolResult:
     stderr: str
     returncode: int
     metadata: Dict[str, Any] | None = None
+
+
+def _cleanup_gdb_processes():
+    try:
+        subprocess.run(["pkill", "-9", "gdb"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    except Exception:
+        pass
 
 
 def _run_subprocess(
@@ -49,11 +58,13 @@ def _run_subprocess(
             metadata={},
         )
     except subprocess.TimeoutExpired as exc:
+        stdout_str = exc.stdout.decode('utf-8', errors='ignore') if exc.stdout else ""
+        stderr_str = exc.stderr.decode('utf-8', errors='ignore') if exc.stderr else ""
         return ToolResult(
             name=name,
             args=args,
-            stdout=exc.stdout or "",
-            stderr=(exc.stderr or "") + "\n[timeout]",
+            stdout=stdout_str,
+            stderr=stderr_str,
             returncode=-1,
             metadata={"timeout": True},
         )
@@ -229,10 +240,61 @@ def ropgadget(*, binary: str | Path) -> ToolResult:
     return result
 
 
-def exp_runner(*, script_path: str | Path, cwd: str | Path | None = None, timeout: float = 20.0) -> ToolResult:
+def _filter_pwntools_output(text: str) -> str:
+    lines = text.split('\n')
+    filtered_lines = []
+    in_hex_dump = False
+    hex_dump_lines_buffer = []
+    
+    for line in lines:
+        stripped = line.strip()
+        
+        if in_hex_dump:
+            if stripped.startswith('[') or not stripped:
+                in_hex_dump = False
+                hex_dump_lines_buffer = []
+            else:
+                hex_dump_lines_buffer.append(line)
+                continue
+        
+        if stripped.startswith('[+] Starting local process'):
+            continue
+        if stripped.startswith('[*]') and ("Arch:" in stripped or "RELRO:" in stripped or 
+                                           "Stack:" in stripped or "NX:" in stripped or 
+                                           "PIE:" in stripped):
+            continue
+        if stripped.startswith('[*]') and "'" in stripped and ('/' in stripped or '.so' in stripped):
+            continue
+        if stripped.startswith('[DEBUG]'):
+            if 'Received' in stripped and 'bytes:' in stripped:
+                in_hex_dump = True
+                hex_dump_lines_buffer = []
+                filtered_lines.append(stripped)
+                filtered_lines.append('    <hex dump omitted>')
+            elif 'Sent' in stripped and 'bytes:' in stripped:
+                filtered_lines.append(stripped)
+            continue
+        if 'BytesWarning' in stripped:
+            continue
+        if stripped.startswith('000000') and '│' in stripped:
+            in_hex_dump = True
+            hex_dump_lines_buffer = []
+            continue
+        if stripped.startswith('[DEBUG]') and 'gdb script' in stripped.lower():
+            continue
+        if stripped.startswith('[*] running in new terminal:'):
+            continue
+        
+        filtered_lines.append(line)
+    
+    return '\n'.join(filtered_lines)
+
+
+def exp_runner(*, script_path: str | Path, cwd: str | Path | None = None, timeout: float = 15.0) -> ToolResult:
     script = Path(script_path).expanduser().resolve()
     run_cwd = Path(cwd).expanduser().resolve() if cwd is not None else script.parent
     argv = ["python3", str(script)]
+    
     result = _run_subprocess(
         name="exp_runner",
         argv=argv,
@@ -242,13 +304,19 @@ def exp_runner(*, script_path: str | Path, cwd: str | Path | None = None, timeou
         env=None,
     )
 
-    stdout_lower = result.stdout.lower()
-    success_markers = ("flag{",'FLAG')
-    likely_success = any(m in stdout_lower for m in success_markers)
-    meta = result.metadata or {}
-    meta.update({"likely_success": likely_success})
-    result.metadata = meta
-    return result
+    _cleanup_gdb_processes()
+
+    filtered_stdout = _filter_pwntools_output(result.stdout)
+    filtered_stderr = _filter_pwntools_output(result.stderr)
+    
+    return ToolResult(
+        name=result.name,
+        args=result.args,
+        stdout=filtered_stdout,
+        stderr=filtered_stderr,
+        returncode=result.returncode,
+        metadata=result.metadata,
+    )
 
 
 class ToolRegistry:

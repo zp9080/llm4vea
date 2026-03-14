@@ -18,7 +18,7 @@
             },
             "timeout": {
               "type": "number",
-              "description": "Timeout in seconds (optional)"
+              "description": "Timeout in seconds (default: 15)"
             }
           },
           "required": [
@@ -200,7 +200,7 @@
             },
             "timeout": {
               "type": "number",
-              "description": "Timeout in seconds (optional)"
+              "description": "Timeout in seconds (default: 30)"
             }
           },
           "required": [

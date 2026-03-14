@@ -53,7 +53,51 @@ class InteractivePwnAgent:
 
         self.report_content = self.session.report_content
 
+        self.libc_path = self._get_libc_path()
+
         self._working_messages: List[Dict[str, Any]] = []
+        self._restore_working_messages()
+
+    def _get_libc_path(self) -> Optional[str]:
+        import subprocess
+        try:
+            result = subprocess.run(
+                ["ldd", str(self.binary)],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            for line in result.stdout.splitlines():
+                if "libc.so" in line or "libc-" in line:
+                    if "=>" in line:
+                        parts = line.split("=>")
+                        if len(parts) >= 2:
+                            path = parts[1].split("(")[0].strip()
+                            if path and Path(path).exists():
+                                return path
+                    else:
+                        path = line.split("(")[0].strip()
+                        if path and Path(path).exists():
+                            return path
+        except Exception as e:
+            logger.warning(f"Failed to get libc path: {e}")
+        return None
+
+    def _restore_working_messages(self) -> None:
+        if not self.session.messages:
+            return
+
+        system_prompt = self._build_system_prompt(self.session.phase)
+        has_system = False
+        for msg in self.session.messages:
+            if msg.get("role") == "system":
+                has_system = True
+                break
+
+        if not has_system:
+            self._working_messages.append({"role": "system", "content": system_prompt})
+
+        self._working_messages.extend(self.session.messages)
 
     def _build_system_prompt(self, phase: str) -> str:
         if phase == AgentPhase.PLAN.value:
@@ -69,7 +113,7 @@ class InteractivePwnAgent:
 
         parts = [base_prompt, "\n\n", SKILL_PROMPT]
         if skill:
-            parts.append("\n\n# Important Skills\n")
+            parts.append("\n\n# ⚠️ 核心技能（必须遵循）\n")
             parts.append(skill)
         parts.append("\n\n# Tools Index\n")
         parts.append(tools_index)
@@ -84,6 +128,8 @@ class InteractivePwnAgent:
         parts: List[str] = []
 
         parts.append(f"# Task\n- binary_path: {self.binary}\n")
+        if self.libc_path:
+            parts.append(f"- libc_path: {self.libc_path}\n")
 
         if phase == AgentPhase.PLAN.value:
             if self.poc_md and self.poc_md.exists():
