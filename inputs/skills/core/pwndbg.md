@@ -4,7 +4,6 @@
 `pwndbg` 适用于以下场景：
 - 需要快速理解程序崩溃时的上下文（寄存器、反汇编、栈回溯）。
 - 动态调试 ROP 链、各类堆利用（tcache poisoning、UAF 等）时，需要可视化观察栈、堆、bins 的状态。
-- 使用 `pwntools` 编写 EXP，并希望通过 `gdb.attach` 实现脚本与 GDB 的无缝联动调试。
 - **AI 自动化调试**: 通过 `pwntools` 的 GDB Python API，让 AI 能够程序化地控制 GDB，执行调试命令、读取内存状态、验证漏洞利用逻辑，无需人工交互。
 
 # 使用方法
@@ -18,7 +17,8 @@
   - **ROP 调试**: `retaddr` 显示当前栈帧返回地址，`stack` 命令可详细展示栈内容。
 
 - **断点与观察点**:
-  - `b *<address>`: 在关键地址（如函数返回、gadget）下断点。
+  - `break *<address>`: 设置断点，程序执行到该地址时会暂停。
+  - **PIE 程序断点**: 若 checksec 显示 `PIE: PIE enabled`，断点地址需用 `*$rebase(offset)` 形式。例如 `break *$rebase(0x1839)`，其中 offset 是 IDA 中看到的地址。
   - `x/10gx <address>`: 以 8 字节为单位连续查看 10 个内存单元，常用于检查返回地址、堆块指针等关键数据。
 
 - **AI 自动化调试（GDB Python API）**
@@ -69,30 +69,33 @@ def dbg_exec(cmd):
 
 def dbg_continue():
     """
-    删除断点并继续执行程序（异步方式）
+    删除断点并继续执行程序
     
     此函数会：
     1. 删除当前所有断点（避免后续执行时再次停止）
-    2. 异步继续执行程序（不等待程序停止）
+    2. 继续执行程序
     
     如果需要在其他程序状态打断点，应再次调用 dbg_init()
     """
     if gdb_instance is None:
         raise Exception("GDB not initialized. Call dbg_init() first.")
-    gdb_instance.execute('delete breakpoints')
-    gdb_instance.continue_nowait()
+    gdb_instance.execute('delete breakpoints')    
+    try:
+        gdb_instance.execute('c')
+    except:
+        pass
 
 # ... 程序交互函数定义 ...
-
+# 注意：下面的 "xxx" 应该替换为 ida-pro-mcp 中 view_func 对应函数的实际字符串
 def add(idx, size, cont):
-    p.sendlineafter(b"choice:", str(1))
-    p.sendlineafter(b"idx:", str(idx))
-    p.sendlineafter(b"size:", str(size))
-    p.sendafter(b"content:", cont)
+    p.sendlineafter(b"xxx", str(1))
+    p.sendlineafter(b"xxx", str(idx))
+    p.sendlineafter(b"xxx", str(size))
+    p.sendafter(b"xxx", cont)
 
 def delete(idx):
-    p.sendlineafter(b"choice:", str(2))
-    p.sendlineafter(b"idx:", str(idx))
+    p.sendlineafter(b"xxx", str(2))
+    p.sendlineafter(b"xxx", str(idx))
 
 # 执行一些程序操作
 add(0, 0x100, b'aaaa')
@@ -108,37 +111,43 @@ delete(0)
 # 4. 此时 AI 可以执行各种调试命令查看程序状态
 #
 # 断点设置原则：
-# 1. 只需设置一个断点即可，无需在多处设置断点
-# 2. 断点应设置在 menu 函数中（如打印菜单的函数入口），而非 add、delete 等功能函数
-# 3. 堆菜单题通常会循环调用 menu 函数，断在此处可以有序地观察每次操作后的堆状态
-# 4. 如果断在 add、delete 等函数内部，断点触发时机不够有序，难以获得完整的操作后状态
+# 1. 使用 break 设置断点
+# 2. PIE 程序用 $rebase(offset)，offset 为 IDA 中的地址偏移
+# 3. 断在 menu 函数入口，可有序观察每次操作后的状态
 #
-# 示例：假设 menu 函数入口地址为 0x401839
-dbg_init('b *0x401839')
+# 示例：menu 函数在 IDA 中地址为 0x1839（PIE 程序）
+dbg_init('break *$rebase(0x1839)')
 
-# AI 执行调试命令
+# AI 执行调试命令（可连续执行多个 dbg_exec，但 dbg_continue 必须在程序操作之前执行）
 heap_info = dbg_exec('heap')
 print("Heap status:", heap_info)
 
 mem_data = dbg_exec('telescope 0x404140')
 print("Memory at target:", mem_data)
 
-# 继续执行程序
+# ... 继续调试或进行其他操作 ...
 dbg_continue()
 
-# ... 后续漏洞利用逻辑 ...
+# 程序继续运行，等待断点或执行 add、delete 等操作
+# 后续可再次设置断点进行调试
 ```
 
 # 注意事项
-1. **dbg_continue 行为**: 该函数会删除所有断点并异步继续执行程序，确保后续 pwntools 可以正常与程序交互。
-2. **多次调试**: 如果需要在不同的程序状态打断点，可以多次调用 `dbg_init()`。每次调用会重新附加 GDB 并设置新断点。
-3. **本地进程限制**: GDB Python API 目前仅支持本地进程调试。
-4. **断点时机**: `gdb.attach()` 附加后程序会暂停，调试完成后调用 `dbg_continue()` 让程序继续运行。
+1. **断点设置**: 使用 `break` 设置断点，PIE 程序使用 `$rebase(offset)` 格式，offset 为 IDA 中看到的地址偏移。
+2. **dbg_continue 行为**: 该函数删除断点后继续执行程序，确保后续 pwntools 可以正常与程序交互。
+3. **多次调试**: 需要在不同程序状态打断点时，再次调用 `dbg_init()` 设置新的断点。
+4. **本地进程限制**: GDB Python API 目前仅支持本地进程调试。
+5. **【必须】打印 dbg_exec 结果**: 每次 `dbg_exec()` 后必须打印输出
 
 # pwndbg命令详解
 
 ## vmmap
 显示进程内存布局，定位程序基址、libc 基址、堆和栈地址。通过 `dbg_exec('vmmap')` 调用。
+
+**注意：** `dbg_exec()` 输出包含 ANSI 颜色代码，解析前需过滤：
+```python
+clean_output = re.sub(r'\x1b\[[0-9;]*m', '', dbg_exec('vmmap'))
+```
 
 **输出格式示例：**
 ```
@@ -146,13 +155,16 @@ LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA
              Start                End Perm     Size Offset File 
           0x3fe000           0x400000 rw-p     2000      0 /path/to/pwn 
         0x35dd1000         0x35df2000 rw-p    21000      0 [heap] 
-    0x7f7536849000     0x7f75369c1000 r-xp   178000  22000 /path/to/libc.so.6 
-    0x7f7536a13000     0x7f7536a15000 rw-p     2000 1eb000 /path/to/libc.so.6 
+    0x7f7536849000     0x7f753686b000 r--p    22000      0 /path/to/libc.so.6 
+    0x7f753686b000     0x7f75369e3000 r-xp   178000  22000 /path/to/libc.so.6 
+    0x7f75369e3000     0x7f7536a31000 r--p    4e000 19a000 /path/to/libc.so.6 
+    0x7f7536a31000     0x7f7536a35000 r--p     4000 1e7000 /path/to/libc.so.6 
+    0x7f7536a35000     0x7f7536a37000 rw-p     2000 1eb000 /path/to/libc.so.6 
     0x7fff9764a000     0x7fff9766b000 rw-p    21000      0 [stack] 
 ```
 
 **地址定位：**
-- libc 基址：查找包含 `libc` 且权限为 `r-xp` 的行，Start 列即为基址
+- libc 基址：查找第一个包含 `libc` 的行，Start 列即为基址
 - 堆地址：查找 `[heap]` 行，Start 列即为堆起始地址
 - 栈地址：查找 `[stack]` 行，Start 列即为栈起始地址
 

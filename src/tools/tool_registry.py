@@ -241,53 +241,9 @@ def ropgadget(*, binary: str | Path) -> ToolResult:
 
 
 def _filter_pwntools_output(text: str) -> str:
-    lines = text.split('\n')
-    filtered_lines = []
-    in_hex_dump = False
-    hex_dump_lines_buffer = []
-    
-    for line in lines:
-        stripped = line.strip()
-        
-        if in_hex_dump:
-            if stripped.startswith('[') or not stripped:
-                in_hex_dump = False
-                hex_dump_lines_buffer = []
-            else:
-                hex_dump_lines_buffer.append(line)
-                continue
-        
-        if stripped.startswith('[+] Starting local process'):
-            continue
-        if stripped.startswith('[*]') and ("Arch:" in stripped or "RELRO:" in stripped or 
-                                           "Stack:" in stripped or "NX:" in stripped or 
-                                           "PIE:" in stripped):
-            continue
-        if stripped.startswith('[*]') and "'" in stripped and ('/' in stripped or '.so' in stripped):
-            continue
-        if stripped.startswith('[DEBUG]'):
-            if 'Received' in stripped and 'bytes:' in stripped:
-                in_hex_dump = True
-                hex_dump_lines_buffer = []
-                filtered_lines.append(stripped)
-                filtered_lines.append('    <hex dump omitted>')
-            elif 'Sent' in stripped and 'bytes:' in stripped:
-                filtered_lines.append(stripped)
-            continue
-        if 'BytesWarning' in stripped:
-            continue
-        if stripped.startswith('000000') and '│' in stripped:
-            in_hex_dump = True
-            hex_dump_lines_buffer = []
-            continue
-        if stripped.startswith('[DEBUG]') and 'gdb script' in stripped.lower():
-            continue
-        if stripped.startswith('[*] running in new terminal:'):
-            continue
-        
-        filtered_lines.append(line)
-    
-    return '\n'.join(filtered_lines)
+    import re
+    text = re.sub(r'\x1b\[[0-9;]*[a-zA-Z]', '', text)
+    return text
 
 
 def exp_runner(*, script_path: str | Path, cwd: str | Path | None = None, timeout: float = 15.0) -> ToolResult:

@@ -242,10 +242,6 @@ class McpRegistry:
                         "type": "object",
                         "properties": {
                             "server": {"type": "string", "description": "MCP server name from <mcps>"},
-                            "include_schema": {
-                                "type": "boolean",
-                                "description": "Whether to include inputSchema/outputSchema in response",
-                            },
                         },
                         "required": ["server"],
                     },
@@ -285,7 +281,7 @@ class McpRegistry:
         try:
             if tool_name == "mcp_list_tools":
                 server = str(kwargs.get("server", "")).strip()
-                include_schema = bool(kwargs.get("include_schema", False))
+                include_schema = bool(kwargs.get("include_schema", True))
                 if not server:
                     raise McpConnectionError("server is required")
 

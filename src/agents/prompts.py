@@ -150,16 +150,21 @@ PWN_AGENT_SYSTEM_PROMPT = """
     *  当利用稳定达成目标后，生成最终的`report.md`，总结利用过程和关键点。
 
 # 关键约束（必须遵守）
-1. **禁止猜测交互字符串**：编写 exp.py 前，必须用 ida-pro-mcp 查看关键函数确认实际提示字符串，绝对禁止猜测。
+1. **【必须】交互字符串精确复制**：使用 `view_func` 后，必须从反编译代码中**逐字符精确复制**提示字符串，禁止凭记忆或猜测（即使只差一个空格也会导致超时）。
+
 2. **必须分析函数限制条件**：使用 `view_func` 查看函数时，必须仔细分析其中的条件判断（如索引范围、大小范围、输入长度限制等），确保 exp.py 中的参数符合程序要求。
+
 3. **禁止硬编码偏移量**：参考skill中的pwndbg.md，`vmmap` 动态计算偏移，关键点用 `bins`、`x/gx` 等命令验证。
-4. **Flag 读取方式**：使用 `recvuntil(b'flag')` 定位后再读取，避免缓冲区问题：
+
+4. **Flag 读取方式**：**【禁止使用 p.interactive()】**，这会导致 exp_runner 函数超时。必须使用以下方式读取 flag：
    ```python
    p.sendline(b'cat ~/flag')
    p.recvuntil(b'flag')
    flag = p.recvline().decode().strip()
    ```
-5. **exp_runner 结果判断**：stderr 有内容不等于失败；超时可能是交互字符串错误或使用了 `interactive()`。
+
+5. **exp_runner 结果判断与诊断优先级**：stderr有内容不等于失败；超时优先检查交互字符串匹配问题，诊断顺序：交互字符串 → 数据长度/格式 → 程序逻辑。
+
 6. **进程启动与必备初始化代码**：exp.py 开头必须包含以下模板代码：
    ```python
    p = process(binary_path)

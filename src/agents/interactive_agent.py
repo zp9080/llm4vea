@@ -174,12 +174,11 @@ class InteractivePwnAgent:
                 {"role": "user", "content": user_context},
             ]
             self.session.messages.append({"role": "system", "content": system_prompt})
+            self.session.messages.append({"role": "user", "content": user_context})
         else:
             if user_input.strip():
                 messages.append({"role": "user", "content": user_input})
-
-        if user_input.strip():
-            self.session.messages.append({"role": "user", "content": user_input})
+                self.session.messages.append({"role": "user", "content": user_input})
 
         step_count = 0
 

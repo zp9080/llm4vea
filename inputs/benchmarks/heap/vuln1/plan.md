@@ -1,12 +1,10 @@
 # 1.二进制安全分析摘要
 checksec 结果：
-- Arch: amd64-64-little
-- RELRO: Partial RELRO
-- Stack: Canary found
-- NX: NX enabled
-- PIE: No PIE (0x3fe000)
-- SHSTK/IBT: Enabled
-- Stripped: No
+Arch:     amd64-64-little
+RELRO:    Full RELRO
+Stack:    Canary found
+NX:       NX enabled
+PIE:      PIE enabled
 
 已识别的漏洞类型: 堆UAF漏洞（基于tcache poison）
 
