@@ -49,25 +49,28 @@ def load_skill(type: str, name: str) -> str:
     else:
         filename = name if name.endswith(".md") else f"{name}.md"
         path = base / filename
-    return read_markdown_files([path])
+    content = read_markdown_files([path])
+    if content:
+        return f"<skill type='{type}' name='{name}'>\n{content}\n</skill>"
+    return ""
 
 # 列举出所有的SKILL.md
 def list_skills() -> str:
     """返回一个紧凑的 skills 索引，仅包含各 SKILL.md 的头部信息。
     """
 
-    parts: list[str] = ["<skills>\n"]
+    parts: list[str] = []
 
     core_skill = SKILLS_ROOT / "core" / "SKILL.md"
     if core_skill.exists():
-        parts.append("\n<core skill>\n")
+        parts.append("\n<core_skill>\n")
         parts.append(_extract_skill_header(core_skill))
-        parts.append("\n</core skill>\n")
+        parts.append("\n</core_skill>\n")
 
     vuln_root = SKILLS_ROOT / "vuln"
     vuln_root_skill = vuln_root / "SKILL.md"
     if vuln_root_skill.exists():
-        parts.append("\n<vuln skill>\n")
+        parts.append("\n<vuln_skill>\n")
         parts.append(_extract_skill_header(vuln_root_skill))
         parts.append("\n")
 
@@ -77,17 +80,16 @@ def list_skills() -> str:
             skill_file = sub / "SKILL.md"
             if not skill_file.exists():
                 continue
-            parts.append(f"\n<{sub.name} skill>\n")
+            parts.append(f"\n<{sub.name}_skill>\n")
             parts.append(_extract_skill_header(skill_file))
-            parts.append(f"\n</{sub.name} skill>\n")
+            parts.append(f"\n</{sub.name}_skill>\n")
 
-        parts.append("\n</vuln skill>\n")
+        parts.append("\n</vuln_skill>\n")
 
     edge_skill = SKILLS_ROOT / "edge" / "SKILL.md"
     if edge_skill.exists():
-        parts.append("\n<edge skill>\n")
+        parts.append("\n<edge_skill>\n")
         parts.append(_extract_skill_header(edge_skill))
-        parts.append("\n</edge skill>\n")
+        parts.append("\n</edge_skill>\n")
 
-    parts.append("\n</skills>\n")
     return "".join(parts)

@@ -365,6 +365,70 @@ def main():
         initial_sidebar_state="expanded",
     )
 
+    st.markdown("""
+    <style>
+        section[data-testid="stSidebar"] {
+            resize: horizontal;
+            overflow: auto;
+            min-width: 250px;
+            max-width: 900px;
+        }
+        section[data-testid="stSidebar"] > div:first-child {
+            width: 100% !important;
+        }
+        section[data-testid="stSidebar"]::after {
+            content: '';
+            position: absolute;
+            right: 0;
+            top: 0;
+            bottom: 0;
+            width: 8px;
+            background: transparent;
+            cursor: col-resize;
+            z-index: 1000;
+        }
+        section[data-testid="stSidebar"]:hover::after {
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3));
+        }
+    </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const sidebar = document.querySelector('section[data-testid="stSidebar"]');
+            if (sidebar) {
+                let isResizing = false;
+                let startX = 0;
+                let startWidth = 0;
+
+                sidebar.addEventListener('mousedown', function(e) {
+                    const rect = sidebar.getBoundingClientRect();
+                    if (e.clientX >= rect.right - 15) {
+                        isResizing = true;
+                        startX = e.clientX;
+                        startWidth = rect.width;
+                        document.body.style.cursor = 'col-resize';
+                        document.body.style.userSelect = 'none';
+                    }
+                });
+
+                document.addEventListener('mousemove', function(e) {
+                    if (isResizing) {
+                        const newWidth = startWidth + (e.clientX - startX);
+                        if (newWidth >= 250 && newWidth <= 900) {
+                            sidebar.style.width = newWidth + 'px';
+                        }
+                    }
+                });
+
+                document.addEventListener('mouseup', function() {
+                    isResizing = false;
+                    document.body.style.cursor = '';
+                    document.body.style.userSelect = '';
+                });
+            }
+        });
+    </script>
+    """, unsafe_allow_html=True)
+
     st.title("🎯 LLM-driven Pwn Agent")
 
     init_session_state()

@@ -111,16 +111,22 @@ class InteractivePwnAgent:
         tools_index = self.tools.list_tools()
         mcps_index = self.mcps.list_mcps()
 
-        parts = [base_prompt, "\n\n", SKILL_PROMPT]
+        parts = [base_prompt]
         if skill:
-            parts.append("\n\n# ⚠️ 核心技能（必须遵循）\n")
+            parts.append("\n\n<loaded_skills>\n")
+            parts.append(SKILL_PROMPT)
+            parts.append("\n\n## Core Skills\n")
             parts.append(skill)
-        parts.append("\n\n# Tools Index\n")
+            parts.append("\n</loaded_skills>\n")
+        parts.append("\n\n<tools>\n")
         parts.append(tools_index)
-        parts.append("\n\n# MCPs Index\n")
+        parts.append("\n</tools>\n")
+        parts.append("\n\n<mcps>\n")
         parts.append(mcps_index)
-        parts.append("\n\n# Skills Index\n")
+        parts.append("\n</mcps>\n")
+        parts.append("\n\n<available_skills>\n")
         parts.append(skills_index)
+        parts.append("</available_skills>\n")
 
         return "".join(parts)
 

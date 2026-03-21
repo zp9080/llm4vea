@@ -138,6 +138,9 @@ dbg_continue()
 3. **多次调试**: 需要在不同程序状态打断点时，再次调用 `dbg_init()` 设置新的断点。
 4. **本地进程限制**: GDB Python API 目前仅支持本地进程调试。
 5. **【必须】打印 dbg_exec 结果**: 每次 `dbg_exec()` 后必须打印输出
+6. **【必须】调试函数调用顺序**：`dbg_init()` → `dbg_exec()` → `dbg_continue()`
+   - **`dbg_exec()` 必须在 `dbg_init()` 之后调用**，否则 GDB 未初始化会报错
+   - **任何程序交互前必须先调用 `dbg_continue()`**
 
 # pwndbg命令详解
 
@@ -164,15 +167,15 @@ LEGEND: STACK | HEAP | CODE | DATA | RWX | RODATA
 ```
 
 **地址定位：**
-- libc 基址：查找第一个包含 `libc` 的行，Start 列即为基址
+- libc 基址：查找第一个包含 `libc` 的行，Start 列即为基址（**禁止**添加 `r-xp` 等过滤条件！第一个 libc 行是 `r--p` 只读数据段，这才是真正的基址；`r-xp` 是代码段映射，不是基址）
 - 堆地址：查找 `[heap]` 行，Start 列即为堆起始地址
 - 栈地址：查找 `[stack]` 行，Start 列即为栈起始地址
 
 **信息泄露配合：**
 ```python
-# 【必须】使用 \x7f 方式接收泄露数据
-# libc 地址的高字节总是 0x7f，通过 recvuntil(b'\x7f') 可以精确定位
+# 【必须】使用 \x7f 方式接收泄露数据，libc 地址的高字节总是 0x7f，通过 recvuntil(b'\x7f') 可以精确定位
 # 其他接收方式（如固定长度接收）容易受到输出格式变化的影响，导致地址解析错误
+# 正确：recvuntil(b'\x7f')[-6:] 精确定位 libc 地址，禁止：data[:8]、recv(8)、固定长度接收等方式
 leaked_addr = u64(p.recvuntil(b'\x7f')[-6:].ljust(8, b'\x00'))
 offset = leaked_addr - libc_base_from_vmmap
 # 后续运行时: libc_base = leaked_addr - offset
