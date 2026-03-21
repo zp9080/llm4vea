@@ -13,12 +13,13 @@
 
 - **Tcache 机制**:
   - Tcache 是每个线程私有的、用于缓存小尺寸空闲 chunk 的单向链表数组。
+  - **大小限制**: 64位系统中，tcache 仅支持 0x20 ~ 0x410 字节的 chunk（用户请求大小 0x10 ~ 0x400）。超出此范围的 chunk 会进入 unsorted bin。
   - `free` 一个 tcache-size 的 chunk 时，它会被直接放到对应 tcache bin 的头部。
   - `malloc` 时，会优先从 tcache 中取 chunk。
   - 在 glibc 2.26 - 2.31 版本中，tcache 对 `fd` 指针和 double free 的检查非常薄弱，使其成为攻击的重灾区。
 
 - **利用路径 (无 Safe-Linking, glibc < 2.32)**:
-  1.  **布置与释放**: 申请至少两个 chunk (`a` 和 `b`)，然后 `free(a)`。`a` 进入 tcache。`b` 的作用是防止 `a` 与 top chunk 合并。
+  1.  **布置与释放**: 申请至少两个 chunk (`a` 和 `b`)，然后 `free(b),free(a)`,形成 `tcache_bin -> a -> b`。
   2.  **投毒**: 利用 UAF 或堆溢出漏洞，将 `a` 的 `fd` 指针覆盖为目标地址 `target_addr` (如 `__free_hook` 的地址)。此时 tcache 链表被污染，变成了 `tcache_bin -> a -> target_addr`。
   3.  **获取目标地址**: `malloc` 两次相同大小的 chunk。
       -   第一次 `malloc` 会分配出原始的 chunk `a`。
@@ -32,10 +33,9 @@
 # 调试线索与判定方法
 
 - **GDB/pwndbg 调试**:
-  - **`tcache` 命令**: 这是调试 tcache 投毒的核心命令。在 `free`、`edit` 和 `malloc` 的每一步之后，都应使用 `tcache` 检查链表状态是否符合预期。
-  - **`x/gx <chunk_addr>`**: 精确检查被 `free` 的 chunk 的 `fd` 指针是否被成功覆盖。
-  - **`malloc` 返回值**: 在 `malloc` 调用后，检查其返回值。第二次 `malloc` 的返回值应等于 `target_addr`。
-  - **`watch <target_addr>`**: 对目标地址（如 `__free_hook`）设置观察点，当其被写入时 GDB 会暂停，可以确认写入时机和内容。
+  - **【必须】`bins` 命令**: tcache poison 后必须调用 `dbg_exec('bins')` 验证，比 `tcache` 命令更全面
+  - **`x/gx <chunk_addr>`**: 检查 chunk 的 `fd` 指针是否被成功覆盖。
+  - **`watch <target_addr>`**: 观察目标地址的写入时机和内容。
 
 - **判定成功**:
   - `x/gx <chunk_addr>` 显示的 `fd` 指针是我们伪造的目标地址。
@@ -48,4 +48,3 @@
 - **Tcache Bin 已满**: 每个 tcache bin 默认最多存放 7 个 chunks。如果 bin 已满，`free` 会将 chunk 放入 unsorted bin，导致投毒失败。
 - **错误的 Target Address**: 如果目标地址是只读的，写入会失败。如果地址无效，程序会崩溃。
 - **Safe-Linking 计算错误**: 在 glibc >= 2.32 中，如果泄露的堆地址不准，或加密 `fd` 的计算有误，`malloc` 在解密时会发现 `(decrypted_fd >> 12) != P`，导致 `abort`。
-- **Double Free**: 在 tcache 中，连续 `free` 同一个 chunk 两次（在 glibc 2.26 中）或 `free(A); free(B); free(A)`（在更高版本中）可以形成循环链表，这也是一种实现任意地址分配的强大原语，有时比 UAF 更直接。

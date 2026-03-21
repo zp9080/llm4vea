@@ -1,4 +1,3 @@
-
 # 适用场景与前置条件
 
 理解 glibc (ptmalloc2) 的内部堆管理机制是所有堆漏洞利用的基础。本知识旨在阐明堆的核心概念，包括 `chunk` 结构、各类 `bin`（tcache, fastbin, smallbin, largebin, unsorted bin）的组织方式，以及随着 glibc 版本演进引入的 arena、tcache 和 Safe-Linking 等关键机制。

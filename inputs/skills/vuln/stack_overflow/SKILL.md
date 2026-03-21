@@ -15,6 +15,7 @@ description: "提供针对栈溢出漏洞的核心利用技术与 EXP 模板。�
 # 索引
 
 ## knowledge
+- [ROPgadget基础知识](./knowledge/rop-gadget.md)
 - [ROP基础知识](./knowledge/rop-basics.md)
 - [栈迁移基础知识](./knowledge/stack-migration.md)
 

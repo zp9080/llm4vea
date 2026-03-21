@@ -1,61 +1,213 @@
 {
-    "tools": [
-        {
-            "type": "function",
-            "function": {
-                "name": "checksec",
-                "description": "Wrapper around checksec to inspect binary protections (NX, PIE, RELRO, Stack Canary, etc.)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "binary": {
-                            "type": "string",
-                            "description": "Path to the target binary file to analyze"
-                        }
-                    },
-                    "required": [
-                        "binary"
-                    ]
-                }
+  "tools": [
+    {
+      "type": "function",
+      "function": {
+        "name": "bash_execute",
+        "description": "Execute a bash command and return stdout/stderr/returncode (useful for adhoc commands).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "command": {
+              "type": "string",
+              "description": "Bash command to execute"
+            },
+            "cwd": {
+              "type": "string",
+              "description": "Working directory (optional)"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Timeout in seconds (default: 15)"
             }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "ropgadget",
-                "description": "Wrapper around ROPgadget for ROP gadget discovery and chain building",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "binary": {
-                            "type": "string",
-                            "description": "Path to the target binary file to search for ROP gadgets"
-                        }
-                    },
-                    "required": [
-                        "binary"
-                    ]
-                }
-            }
-        },
-        {
-            "type": "function",
-            "function": {
-                "name": "exp-runner",
-                "description": "Execute Python-based pwntools exploit scripts and detect success patterns (flags, shells, etc.)",
-                "parameters": {
-                    "type": "object",
-                    "properties": {
-                        "script_path": {
-                            "type": "string",
-                            "description": "Path to the Python exploit script to execute"
-                        }
-                    },
-                    "required": [
-                        "script_path"
-                    ]
-                }
-            }
+          },
+          "required": [
+            "command"
+          ]
         }
-    ]
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "grep_search",
+        "description": "Search text in files using ripgrep (rg), returning matching lines with line numbers.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "pattern": {
+              "type": "string",
+              "description": "Regex pattern to search"
+            },
+            "path": {
+              "type": "string",
+              "description": "File or directory path to search in (default: current directory)"
+            },
+            "glob": {
+              "type": "string",
+              "description": "Optional glob filter (e.g., \"*.py\")"
+            },
+            "ignore_case": {
+              "type": "boolean",
+              "description": "Case-insensitive search (optional)"
+            },
+            "max_results": {
+              "type": "integer",
+              "description": "Max matching lines to return (optional)"
+            }
+          },
+          "required": [
+            "pattern"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "list_dir",
+        "description": "List directory entries (optionally recursive).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "Directory path"
+            },
+            "recursive": {
+              "type": "boolean",
+              "description": "Recursively list subdirectories (optional)"
+            },
+            "max_entries": {
+              "type": "integer",
+              "description": "Max entries to return (optional)"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_read",
+        "description": "Read a text file with line numbers.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "File path"
+            },
+            "start_line": {
+              "type": "integer",
+              "description": "1-based start line (optional)"
+            },
+            "limit": {
+              "type": "integer",
+              "description": "Number of lines to read (optional)"
+            }
+          },
+          "required": [
+            "path"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "file_write",
+        "description": "Write content to a text file.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "path": {
+              "type": "string",
+              "description": "File path to write to"
+            },
+            "content": {
+              "type": "string",
+              "description": "Content to write"
+            },
+            "mode": {
+              "type": "string",
+              "description": "Write mode: 'write' (overwrite) or 'append' (optional)"
+            }
+          },
+          "required": [
+            "path",
+            "content"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "checksec",
+        "description": "Inspect a binary using checksec to analyze security properties (ASLR, PIE, RELRO, etc.).",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "binary": {
+              "type": "string",
+              "description": "Path to the target binary"
+            }
+          },
+          "required": [
+            "binary"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "ropgadget",
+        "description": "Inspect a binary using ROPgadget to find ROP gadgets.",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "binary": {
+              "type": "string",
+              "description": "Path to the target binary"
+            }
+          },
+          "required": [
+            "binary"
+          ]
+        }
+      }
+    },
+    {
+      "type": "function",
+      "function": {
+        "name": "exp_runner",
+        "description": "Execute a python exploit script",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "script_path": {
+              "type": "string",
+              "description": "Path to the Python exploit script"
+            },
+            "cwd": {
+              "type": "string",
+              "description": "Working directory for running the script (optional)"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Timeout in seconds (default: 30)"
+            }
+          },
+          "required": [
+            "script_path"
+          ]
+        }
+      }
+    }
+  ]
 }
